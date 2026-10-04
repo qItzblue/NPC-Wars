@@ -1,0 +1,134 @@
+# NPC-Wars
+
+A Paper plugin for staging NPC battles: equippable player-like NPCs, a combined kit menu (EssentialsX, CMI and a
+built-in fallback), `/massaction`, numbered teams and team-versus-team fights with real combat AI.
+
+- **Server:** Paper **1.21.9 or newer** (built against 1.21.11), Java 21
+- **Soft dependencies:** EssentialsX, CMI (both optional; missing plugins never cause errors)
+
+## Build
+
+```bash
+mvn clean package          # compiles, runs the unit tests, writes target/NPC-Wars-1.0.0.jar
+```
+
+Drop the jar into `plugins/` and start the server. To build against another Paper version:
+`mvn clean package -Dpaper.version=1.21.10-R0.1-SNAPSHOT` (the Mannequin entity needs 1.21.9+).
+
+## Design choice: NPCs are Paper `Mannequin` entities
+
+A Mannequin is a real server-side entity with a player model, skin and equipment slots, and no AI, sounds or despawn
+rules. That gives player-looking NPCs without NMS or per-viewer packets (version-proof, light on the server).
+Because it has no AI, the plugin supplies movement itself: each tick it sets velocity, jump flag, pose and rotation
+(gravity, collisions, step-ups and water stay vanilla) and plans routes with its own A* pathfinder when the straight
+line is blocked.
+
+Bodies are spawned non-persistent; `data.yml` is the single source of truth and bodies are re-created on startup,
+world load and chunk load, so there are never orphaned or duplicated NPCs.
+
+## Commands
+
+| Command | Permission | What it does |
+|---|---|---|
+| `/npc spawn [label] [skin=<player>] [team=<n>]` | `npcplugin.npc` | Spawn an NPC where you stand |
+| `/npc spawnmany <count> [radius] [skin=..] [team=..]` | `npcplugin.npc` | Spawn up to 200 NPCs spread around you |
+| `/npc remove <targets>` / `/npc removeall confirm` | `npcplugin.npc` | Delete NPCs |
+| `/npc list [page]`, `/npc info <id\|look>`, `/npc status` | `npcplugin.use` | Inspect NPCs and the fight state |
+| `/npc tp <id>`, `/npc tphere <targets>` | `npcplugin.npc` | Teleport to / bring NPCs |
+| `/npc select [add] <targets>`, `select clear`, `select list` | `npcplugin.npc` | Select NPCs (used by `/kitall`) |
+| `/npc skin <targets> <player\|reset>`, `/npc rename <id> <label>`, `/npc heal <targets>` | `npcplugin.npc` | Style and heal NPCs |
+| `/npc equip <id\|look>` or **Shift + Right-click** an NPC | `npcplugin.equip` | Equipment GUI (helmet, chest, legs, boots, main hand, off hand) |
+| `/npc team add <team> <npc\|player>...` | `npcplugin.team` | Add NPCs or players to a team (created on demand) |
+| `/npc team massadd <team>` | `npcplugin.team` | Put **every** NPC into the team |
+| `/npc team remove <npc\|player>...`, `list`, `info <team>`, `rename <team> <name\|clear>`, `delete <team>` | `npcplugin.team` | Manage teams |
+| `/npc fight` | `npcplugin.fight` | Start the fight now |
+| `/npc timefight <time>` | `npcplugin.fight` | Start after `30s`, `5m`, `1h`, `1h30m`, ... (countdown is announced) |
+| `/npc stopfight` | `npcplugin.fight` | End the fight or cancel a scheduled one |
+| `/npc kit create <name> [icon]`, `delete`, `list`, `providers` | `npcplugin.kit` | Built-in kits; see all kit sources |
+| `/kitall [all\|selected\|team <n>\|npc <id>]` | `npcplugin.kit` | Menu of every kit from every provider; click to apply |
+| `/massaction <action> [args] [for=<time>] [team=<n>] [npc=<ids>]` | `npcplugin.massaction` | Every NPC does the same thing |
+| `/npc reload`, `/npc save` | `npcplugin.reload` | Reload config / write data now |
+| `/npc debug <id>` | `npcplugin.debug` | Movement and combat state of one NPC |
+
+`<targets>` accepts an id (`5`), a list (`1,2,7`), a range (`3-9`), `all`, `selected`, `look` (the NPC you look at) or
+`team:<n>`. `npcplugin.admin` (default: op) grants everything. Every command has tab completion and error messages.
+
+### Mass actions
+
+`attack` (alias `hit`), `swing`, `move`, `walk`, `run`, `swim`, `jump`, `sneak`, `unsneak`, `look`, `spin`, `follow`,
+`stop`. Examples:
+
+```
+/massaction jump for=10s              every NPC jumps repeatedly for 10 seconds
+/massaction walk north 20 team=2      team 2 walks 20 blocks north
+/massaction move me                   everyone paths to you
+/massaction attack 5                  swing and hit five times
+/massaction sneak on npc=1-10
+```
+
+New actions are one small class: implement `NpcAction`, call `plugin.actions().register(...)`. Tab completion and
+`/massaction list` pick it up automatically.
+
+## Teams and fights
+
+- Teams are positive numbers, created the first time they are used. Players and NPCs can share a team; a member is in
+  one team at a time (adding it elsewhere moves it).
+- The optional team name (`/npc team rename`) is **admin-only**: it is shown only in `team list/info` output and never
+  as a nametag, in chat, on a scoreboard or in announcements (the winner message says "Team 3").
+- During a fight an NPC attacks members of other teams, players without a team, and (by default) NPCs without a team.
+  It never attacks its own team. Unteamed NPCs are each their own side (`fight.unteamed-npcs: IDLE` makes them passive).
+- Combat AI: nearest-enemy search through a spatial grid (staggered across NPCs), sticky target with switching when a
+  clearly closer enemy appears or the target dies, retaliation, pathfinding, sprinting when far, weapon-based attack
+  cooldown, damage from the held weapon and enchantments (Sharpness, Knockback, Fire Aspect), crits when falling,
+  knockback, and vanilla armor/protection on the victim.
+- A fight ends with `/npc stopfight` or automatically when one side is left. On death an NPC stays down until the fight
+  ends (`fight.on-death`: `RESPAWN_ON_FIGHT_END`, `RESPAWN_DELAY` or `REMOVE`).
+- NPCs outside of fights are invulnerable (`npc.invulnerable-when-idle`). NPCs only act while their chunks are loaded.
+
+## Kits
+
+`/kitall` lists kits from every available provider, each labelled with its source:
+
+- **EssentialsX** - read from Essentials' `kits.yml`. Kit command lines are skipped and no cooldown is touched.
+- **CMI** - read through reflection (CMI has no public API jar); best effort, see Limitations.
+- **Built-in** - `plugins/NPC-Wars/kits.yml`; create from your own armor/hotbar with `/npc kit create <name>`.
+
+Armor goes to the matching slot, the strongest weapon to the main hand, a shield to the off hand. To add another kit
+plugin, implement `KitProvider` and call `plugin.kits().register(...)`.
+
+## Performance notes (100+ NPCs)
+
+One tick loop drives everything on the main thread. Idle NPCs on dry land cost nothing per tick. Target searches use a
+spatial grid and are staggered; path searches share a per-tick time budget (`pathfinding.budget-micros-per-tick`) with
+cached terrain lookups and never load chunks. The only asynchronous work is writing `data.yml`, from a string built on
+the main thread, so the Bukkit API is never touched off-thread.
+
+## Limitations (please read)
+
+This was developed and unit-tested without access to a running Minecraft server. The pathfinder, team logic, spatial
+index, damage math, time parser, action registry and config consistency are covered by automated tests; behaviour that
+needs a live server (movement feel, knockback, GUI clicking, combat balance) was reviewed but not run. Everything
+that affects feel is configurable (`movement.*`, `fight.*`, `pathfinding.*`), and `/npc debug <id>` prints an NPC's
+movement/combat state to help tune it.
+
+- The CMI hook is reflection-based and unverified against a real CMI jar.
+- `/npc` is also Citizens' command name; if both are installed use the alias `/npcwars` (or `/npc-wars:npc`).
+- Mannequins cannot climb ladders or open doors; closed doors and fences count as walls for pathfinding.
+- Players using Creative mode can have inventory-GUI quirks; use Survival to equip NPCs by hand or use kits.
+
+## Project layout
+
+```
+src/main/java/com/npcwars/
+  NpcWarsPlugin            lifecycle, tick loop, wiring
+  config/                  Settings, Messages (MiniMessage), DataStore (async-safe data.yml)
+  npc/                     Npc, NpcManager, NpcSlot, NpcSelection;  npc/control/NpcController (movement)
+  path/                    Terrain, PathFinder (A*), PathService (time-budgeted), BukkitTerrain
+  team/                    Team, TeamManager (pure Java), TeamStorage
+  kit/                     KitProvider, KitRegistry, Built-in / Essentials / CMI providers, ItemParser, KitApplier
+  action/                  NpcAction, ActionRegistry, ActionRunner;  action/builtin/ (attack, move, walk, ...)
+  combat/                  FightManager, TargetSelector, SpatialGrid, AttackExecutor, DamageCalculator, Factions
+  gui/                     EquipmentGui, KitMenu, GuiListener
+  command/                 /npc (sub-command router), /kitall, /massaction
+  listener/                interaction, damage rules, lifecycle (death, chunk and world load)
+```
