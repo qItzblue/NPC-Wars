@@ -306,7 +306,11 @@ public final class FightManager {
         }
         for (Fighter fighter : fighters.values().toArray(new Fighter[0])) {
             if (fighters.get(fighter.npc.id()) == fighter) {
-                think(fighter, tick);
+                try {
+                    think(fighter, tick);
+                } catch (RuntimeException ex) {
+                    plugin.reportError("combat AI", ex);
+                }
             }
         }
         if (settings.autoEnd && state == State.RUNNING && tick - lastEndCheck >= END_CHECK_INTERVAL) {
@@ -379,23 +383,36 @@ public final class FightManager {
             return;
         }
 
-        if (reachDistance(body, target) <= settings.attackReach) {
+        boolean inReach = reachDistance(body, target) <= settings.attackReach;
+        if (inReach && canSee(fighter, body, target, tick)) {
             if (controller.isMoving()) {
                 controller.stop();
             }
             controller.face(target.getLocation().add(0, target.getHeight() * 0.6, 0));
-            if (tick >= fighter.nextAttackTick
-                    && (!settings.requireLineOfSight || body.hasLineOfSight(target))) {
-                if (plugin.attacks().strike(npc, target)) {
-                    fighter.nextAttackTick = tick + plugin.attacks().cooldownTicks(npc);
-                }
+            if (tick >= fighter.nextAttackTick && plugin.attacks().strike(npc, target)) {
+                fighter.nextAttackTick = tick + plugin.attacks().cooldownTicks(npc);
             }
             return;
         }
 
+        // Out of reach, or "in reach" but behind a wall, fence or glass pane: keep closing in (around the obstacle).
         double distance = distance(body, target);
         NpcController.Gait gait = distance > settings.sprintDistance ? NpcController.Gait.SPRINT : NpcController.Gait.WALK;
-        controller.moveTo(target.getLocation(), gait, Math.max(0.8, settings.attackReach - 0.8));
+        double arrive = inReach ? 0.5 : Math.max(0.8, settings.attackReach - 0.8);
+        controller.moveTo(target.getLocation(), gait, arrive);
+    }
+
+    /** Line-of-sight check, cached for a few ticks per fighter because it is a ray cast. */
+    private boolean canSee(Fighter fighter, Mannequin body, LivingEntity target, long tick) {
+        if (!plugin.settings().requireLineOfSight) {
+            return true;
+        }
+        if (fighter.sightTarget != target || tick >= fighter.nextSightCheck) {
+            fighter.sightTarget = target;
+            fighter.hasSight = body.hasLineOfSight(target);
+            fighter.nextSightCheck = tick + 5;
+        }
+        return fighter.hasSight;
     }
 
     private boolean isValidTarget(Mannequin body, LivingEntity target, int side) {

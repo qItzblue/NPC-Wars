@@ -40,7 +40,8 @@ public final class ActionRunner {
     public void start(Npc npc, PreparedAction action, long explicitTicks) {
         stop(npc);
         long limit = explicitTicks > 0 ? explicitTicks : action.defaultDurationTicks();
-        active.put(npc.id(), new Active(action, plugin.currentTick(), limit));
+        // The next loop iteration runs at currentTick() + 1; counting from there makes the first tick elapsed = 0.
+        active.put(npc.id(), new Active(action, plugin.currentTick() + 1, limit));
         action.start(npc);
     }
 
@@ -87,7 +88,13 @@ public final class ActionRunner {
                 continue;
             }
             long elapsed = tick - running.startedTick;
-            boolean keepGoing = running.action.tick(npc, elapsed);
+            boolean keepGoing;
+            try {
+                keepGoing = running.action.tick(npc, elapsed);
+            } catch (RuntimeException ex) {
+                plugin.reportError("mass action '" + running.action.getClass().getSimpleName() + "'", ex);
+                keepGoing = false;
+            }
             if (!keepGoing || (running.limitTicks > 0 && elapsed >= running.limitTicks)) {
                 iterator.remove();
                 running.action.stop(npc);

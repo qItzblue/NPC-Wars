@@ -10,6 +10,10 @@ final class Fighter {
     LivingEntity target;
     long nextAttackTick;
     long nextSearchTick;
+    /** Cached line-of-sight result for {@link #sightTarget}, valid until {@link #nextSightCheck}. */
+    LivingEntity sightTarget;
+    boolean hasSight;
+    long nextSightCheck;
 
     Fighter(Npc npc, long now, int retargetInterval) {
         this.npc = npc;

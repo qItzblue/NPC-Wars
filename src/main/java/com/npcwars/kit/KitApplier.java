@@ -1,12 +1,14 @@
 package com.npcwars.kit;
 
 import com.npcwars.NpcWarsPlugin;
+import com.npcwars.combat.DamageCalculator;
 import com.npcwars.npc.Npc;
 import com.npcwars.npc.NpcSlot;
 import java.util.Collection;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 
 /** Turns a kit's item list into an NPC loadout and applies it. */
@@ -20,31 +22,45 @@ public final class KitApplier {
 
     /**
      * Chooses a slot for each item: armor goes to its armor slot (first piece wins), a shield to the off hand, and the
-     * item with the highest attack damage to the main hand (a non-weapon such as a bow only if nothing better exists).
+     * weapon with the highest damage per second to the main hand. Only if the kit has no melee weapon at all, the first
+     * holdable item (a bow, a tool, ...) is used; food, blocks and ammunition never go into the hand.
      */
     public Map<NpcSlot, ItemStack> toLoadout(List<ItemStack> items) {
         Map<NpcSlot, ItemStack> loadout = new EnumMap<>(NpcSlot.class);
-        ItemStack bestHand = null;
-        double bestDamage = -1;
+        ItemStack bestWeapon = null;
+        double bestScore = 0;
+        ItemStack fallback = null;
         for (ItemStack item : items) {
             if (item == null || item.getType().isAir()) {
                 continue;
             }
             NpcSlot slot = NpcSlot.preferredFor(item);
-            if (slot == NpcSlot.MAIN_HAND) {
-                double damage = plugin.attacks().weaponDamage(item);
-                if (damage > bestDamage) {
-                    bestDamage = damage;
-                    bestHand = item;
-                }
-            } else {
+            if (slot != NpcSlot.MAIN_HAND) {
                 loadout.putIfAbsent(slot, single(item));
+                continue;
+            }
+            double damage = plugin.attacks().weaponDamage(item);
+            if (damage > DamageCalculator.BASE_ATTACK_DAMAGE) {
+                double score = damage * plugin.attacks().attackSpeed(item);
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestWeapon = item;
+                }
+            } else if (fallback == null && isHoldable(item)) {
+                fallback = item;
             }
         }
-        if (bestHand != null) {
-            loadout.put(NpcSlot.MAIN_HAND, single(bestHand));
+        ItemStack hand = bestWeapon != null ? bestWeapon : fallback;
+        if (hand != null) {
+            loadout.put(NpcSlot.MAIN_HAND, single(hand));
         }
         return loadout;
+    }
+
+    private static boolean isHoldable(ItemStack item) {
+        Material type = item.getType();
+        return !type.isEdible() && !type.isBlock() && type != Material.ARROW
+                && type != Material.SPECTRAL_ARROW && type != Material.TIPPED_ARROW;
     }
 
     /**

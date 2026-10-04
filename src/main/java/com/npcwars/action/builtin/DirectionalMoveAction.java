@@ -75,6 +75,10 @@ public final class DirectionalMoveAction implements NpcAction {
                 throw new ActionException("action.bad-argument", Messages.var("argument", arg), Messages.var("action", name));
             }
         }
+        if ((direction == Direction.TOWARD || direction == Direction.AWAY) && context.origin() == null) {
+            throw new ActionException("action.need-player-in-world",
+                    Messages.var("direction", direction.name().toLowerCase(java.util.Locale.ROOT)));
+        }
         long fallback = context.plugin().settings().defaultActionSeconds * 20L;
         return new Prepared(direction, blocks, context.origin(), fallback);
     }
@@ -110,6 +114,7 @@ public final class DirectionalMoveAction implements NpcAction {
             try {
                 vector = direction.resolve(npc, origin);
             } catch (ActionException ex) {
+                // Only happens for TOWARD/AWAY when this NPC is in another world than the sender: it just stays put.
                 return;
             }
             Location here = npc.currentLocation();

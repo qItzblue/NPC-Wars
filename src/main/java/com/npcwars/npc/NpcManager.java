@@ -196,20 +196,29 @@ public final class NpcManager {
             maxHealth.setBaseValue(settings.maxHealth);
         }
         body.setHealth(Math.min(settings.maxHealth, maxHealth == null ? settings.maxHealth : maxHealth.getValue()));
+        applyAppearance(npc, body);
+        EntityEquipment equipment = body.getEquipment();
+        for (NpcSlot slot : NpcSlot.values()) {
+            equipment.setDropChance(slot.bukkit(), 0f);
+            equipment.setItem(slot.bukkit(), npc.equipment(slot), true);
+        }
+    }
+
+    /** Applies the label (if nametags are on) and the skin to a body, new or already spawned. */
+    private void applyAppearance(Npc npc, Mannequin body) {
+        Settings settings = plugin.settings();
         if (settings.showNametag && npc.label() != null && !npc.label().isBlank()) {
             body.customName(Component.text(npc.label()));
             body.setCustomNameVisible(true);
         } else {
+            body.customName(null);
             body.setCustomNameVisible(false);
         }
         String skin = npc.skin() != null ? npc.skin() : settings.defaultSkin;
         if (skin != null && !skin.isBlank()) {
             body.setProfile(ResolvableProfile.resolvableProfile().name(skin).build());
-        }
-        EntityEquipment equipment = body.getEquipment();
-        for (NpcSlot slot : NpcSlot.values()) {
-            equipment.setDropChance(slot.bukkit(), 0f);
-            equipment.setItem(slot.bukkit(), npc.equipment(slot), true);
+        } else {
+            body.setProfile(Mannequin.defaultProfile());
         }
     }
 
@@ -245,16 +254,16 @@ public final class NpcManager {
         plugin.data().requestSave();
     }
 
-    /** Changes the skin and respawns the body so the new profile shows (a profile cannot be swapped reliably live). */
+    /** Changes the skin on the live body (health, target and position are untouched) and saves. */
     public void setSkin(Npc npc, String skin) {
         npc.setSkin(skin);
-        refreshBody(npc);
+        refreshAppearance(npc);
         plugin.data().requestSave();
     }
 
     public void setLabel(Npc npc, String label) {
         npc.setLabel(label);
-        refreshBody(npc);
+        refreshAppearance(npc);
         plugin.data().requestSave();
     }
 
@@ -285,13 +294,10 @@ public final class NpcManager {
         }
     }
 
-    private void refreshBody(Npc npc) {
-        if (!npc.isLive()) {
-            return;
+    private void refreshAppearance(Npc npc) {
+        if (npc.isLive()) {
+            applyAppearance(npc, npc.entity());
         }
-        Location where = npc.entity().getLocation();
-        despawnBody(npc);
-        spawnBodyAt(npc, where);
     }
 
     // ---------------------------------------------------------------- ticking
@@ -299,8 +305,13 @@ public final class NpcManager {
     /** Runs every live NPC's movement controller (only those with something to do). */
     public void tickControllers(long tick) {
         for (Npc npc : npcs.values()) {
-            if (npc.isLive() && npc.controller().needsTick()) {
-                npc.controller().tick(tick);
+            try {
+                if (npc.isLive() && npc.controller().needsTick()) {
+                    npc.controller().tick(tick);
+                }
+            } catch (RuntimeException ex) {
+                // One NPC in a strange state must not stop the others from moving.
+                plugin.reportError("NPC movement", ex);
             }
         }
     }

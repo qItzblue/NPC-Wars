@@ -61,8 +61,6 @@ public final class NpcController {
     private double checkZ;
     private long checkTick;
     private int stuckChecks;
-    private float lastYaw = Float.NaN;
-    private float lastPitch = Float.NaN;
 
     public NpcController(NpcWarsPlugin plugin, Npc npc) {
         this.plugin = plugin;
@@ -159,14 +157,14 @@ public final class NpcController {
         double flat = Math.hypot(dx, dz);
         float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
         float pitch = (float) -Math.toDegrees(Math.atan2(dy, flat));
-        setRotation(body, yaw, pitch);
+        setRotation(body, body.getLocation(), yaw, pitch);
     }
 
     /** Sets an absolute yaw and pitch. */
     public void setLook(float yaw, float pitch) {
         Mannequin body = npc.entity();
         if (body != null && body.isValid()) {
-            setRotation(body, yaw, pitch);
+            setRotation(body, body.getLocation(), yaw, pitch);
         }
     }
 
@@ -311,7 +309,7 @@ public final class NpcController {
         }
         if (wantMove && autoFace) {
             float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
-            setRotation(body, yaw, 0f);
+            setRotation(body, loc, yaw, 0f);
         }
         trackProgress(loc, tick, wantMove);
     }
@@ -438,20 +436,16 @@ public final class NpcController {
         return swimming ? Pose.SWIMMING : sneaking ? Pose.SNEAKING : Pose.STANDING;
     }
 
-    private void setRotation(Mannequin body, float yaw, float pitch) {
-        if (Math.abs(wrap(yaw - lastYaw)) < 0.5f && Math.abs(pitch - lastPitch) < 0.5f) {
+    /** Turns the body; skips the call when it already faces that way (compared with its real rotation). */
+    private static void setRotation(Mannequin body, Location current, float yaw, float pitch) {
+        if (Math.abs(wrap(yaw - current.getYaw())) < 0.05f && Math.abs(pitch - current.getPitch()) < 0.05f) {
             return;
         }
-        lastYaw = yaw;
-        lastPitch = pitch;
         body.setRotation(yaw, pitch);
         body.setBodyYaw(yaw);
     }
 
     private static float wrap(float degrees) {
-        if (Float.isNaN(degrees)) {
-            return 360f;
-        }
         float d = degrees % 360f;
         if (d > 180f) {
             d -= 360f;

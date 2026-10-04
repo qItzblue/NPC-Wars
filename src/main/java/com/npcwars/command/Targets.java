@@ -58,9 +58,8 @@ public final class Targets {
     public static List<Npc> manyOf(CommandContext ctx, List<String> tokens) throws CommandException {
         Map<Integer, Npc> found = new LinkedHashMap<>();
         for (String token : tokens) {
-            int before = found.size();
-            resolveInto(ctx, token, found);
-            if (found.size() == before && isUnresolvable(ctx, token)) {
+            int matched = resolveInto(ctx, token, found);
+            if (matched == 0 && !mayBeEmpty(token)) {
                 throw new CommandException("npc.not-found", Messages.var("input", token));
             }
         }
@@ -111,17 +110,26 @@ public final class Targets {
         return out;
     }
 
-    private static boolean isUnresolvable(CommandContext ctx, String token) {
-        // A word like "team:9" for an empty team resolves to nothing without being an error on its own.
-        return !token.toLowerCase(Locale.ROOT).startsWith("team:") && !token.equalsIgnoreCase("selected");
+    /** Words that are allowed to match nothing on their own (the overall result is still checked by the caller). */
+    private static boolean mayBeEmpty(String token) {
+        return token.toLowerCase(Locale.ROOT).startsWith("team:") || token.equalsIgnoreCase("selected");
     }
 
-    private static void resolveInto(CommandContext ctx, String token, Map<Integer, Npc> out) throws CommandException {
+    /** @return how many NPCs the word names, counting NPCs that an earlier word already added */
+    private static int resolveInto(CommandContext ctx, String token, Map<Integer, Npc> out) throws CommandException {
+        int[] matched = {0};
+        resolveWord(ctx, token, out, matched);
+        return matched[0];
+    }
+
+    private static void resolveWord(CommandContext ctx, String token, Map<Integer, Npc> out, int[] matched)
+            throws CommandException {
         String lower = token.toLowerCase(Locale.ROOT);
         switch (lower) {
             case "all" -> {
                 for (Npc npc : ctx.plugin().npcs().all()) {
                     out.put(npc.id(), npc);
+                    matched[0]++;
                 }
                 return;
             }
@@ -132,6 +140,7 @@ public final class Targets {
                     Npc npc = ctx.plugin().npcs().get(id);
                     if (npc != null) {
                         out.put(id, npc);
+                        matched[0]++;
                     }
                 }
                 return;
@@ -142,6 +151,7 @@ public final class Targets {
                 Npc npc = target == null ? null : ctx.plugin().npcs().byEntity(target);
                 if (npc != null) {
                     out.put(npc.id(), npc);
+                    matched[0]++;
                 }
                 return;
             }
@@ -153,6 +163,7 @@ public final class Targets {
                 Npc npc = ctx.plugin().npcs().get(id);
                 if (npc != null) {
                     out.put(id, npc);
+                    matched[0]++;
                 }
             }
             return;
@@ -180,6 +191,7 @@ public final class Targets {
             Npc npc = ctx.plugin().npcs().get(id);
             if (npc != null) {
                 out.put(id, npc);
+                matched[0]++;
             }
         }
     }

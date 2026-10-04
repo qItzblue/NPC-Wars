@@ -73,7 +73,8 @@ public final class MoveAction implements NpcAction {
             }
             case "random", "wander" -> {
                 int radius = 10;
-                if (args.size() > 1 && args.get(1).chars().allMatch(Character::isDigit)) {
+                if (args.size() > 1 && !args.get(1).isEmpty() && args.get(1).length() <= 6
+                        && args.get(1).chars().allMatch(Character::isDigit)) {
                     radius = Math.max(2, Math.min(200, Integer.parseInt(args.get(1))));
                 }
                 return new Prepared(Target.RANDOM, null, radius, gait);

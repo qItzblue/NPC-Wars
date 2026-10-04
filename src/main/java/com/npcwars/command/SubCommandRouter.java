@@ -42,7 +42,8 @@ public final class SubCommandRouter {
             String first = ctx.arg(0).toLowerCase(Locale.ROOT);
             if (first.equals("help") || first.equals("?")) {
                 int page = 1;
-                if (ctx.size() > 1 && ctx.arg(1).chars().allMatch(Character::isDigit) && !ctx.arg(1).isEmpty()) {
+                if (ctx.size() > 1 && !ctx.arg(1).isEmpty() && ctx.arg(1).length() <= 6
+                        && ctx.arg(1).chars().allMatch(Character::isDigit)) {
                     page = Integer.parseInt(ctx.arg(1));
                 }
                 help(ctx, page);

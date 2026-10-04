@@ -58,7 +58,7 @@ public final class NpcWarsPlugin extends JavaPlugin {
     private FightManager fights;
     private BukkitTask loop;
     private long tick;
-    private long lastLoopErrorTick = Long.MIN_VALUE / 2;
+    private final java.util.Map<String, Long> lastErrorTick = new java.util.HashMap<>();
 
     @Override
     public void onEnable() {
@@ -254,19 +254,33 @@ public final class NpcWarsPlugin extends JavaPlugin {
     /** The single per-tick driver: path searches, actions, the fight AI, then NPC movement, then bookkeeping. */
     private void tickLoop() {
         tick++;
+        // Each stage is isolated, so a failure in one (say the fight AI) never freezes movement or respawning.
+        stage("path service", () -> paths.tick(tick));
+        stage("mass actions", () -> runner.tick(tick));
+        stage("fight manager", () -> fights.tick(tick));
+        stage("NPC movement", () -> npcs.tickControllers(tick));
+        stage("NPC maintenance", () -> npcs.maintenance(tick));
+    }
+
+    private void stage(String name, Runnable work) {
         try {
-            paths.tick(tick);
-            runner.tick(tick);
-            fights.tick(tick);
-            npcs.tickControllers(tick);
-            npcs.maintenance(tick);
+            work.run();
         } catch (RuntimeException ex) {
-            // One bad tick must not stop the loop; log at most once every 10 seconds to avoid flooding the console.
-            if (tick - lastLoopErrorTick > 200) {
-                lastLoopErrorTick = tick;
-                getLogger().log(java.util.logging.Level.SEVERE, "Error in the NPC tick loop", ex);
-            }
+            reportError(name, ex);
         }
+    }
+
+    /**
+     * Logs an exception from the tick loop. Each place is reported at most once every 10 seconds, so a fault that
+     * repeats every tick cannot flood the console, but is still visible.
+     */
+    public void reportError(String where, Throwable error) {
+        Long last = lastErrorTick.get(where);
+        if (last != null && tick - last < 200) {
+            return;
+        }
+        lastErrorTick.put(where, tick);
+        getLogger().log(java.util.logging.Level.SEVERE, "Error in " + where + " (further repeats are hidden for 10s)", error);
     }
 
     /** Lets other code identify NPC entities without depending on internals. */
