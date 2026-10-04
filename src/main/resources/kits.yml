@@ -1,0 +1,61 @@
+# Built-in kits (the fallback kit system used when no other kit plugin is installed).
+#
+# Each entry in "items" is either
+#   - a text line:   MATERIAL [amount] [enchantment:level ...]      e.g. DIAMOND_SWORD sharpness:3 unbreaking:2
+#   - or "base64:<data>", written by "/npc kit create <name>" (keeps names, lore, trims, ...).
+#
+# Armor pieces go to the matching armor slot of the NPC, the strongest weapon goes to the main hand and a
+# shield goes to the off hand. Create, list and delete kits in game with /npc kit create|list|delete,
+# or edit this file and run /npc reload.
+kits:
+  leather:
+    icon: LEATHER_CHESTPLATE
+    items:
+      - LEATHER_HELMET
+      - LEATHER_CHESTPLATE
+      - LEATHER_LEGGINGS
+      - LEATHER_BOOTS
+      - WOODEN_SWORD
+  chainmail:
+    icon: CHAINMAIL_CHESTPLATE
+    items:
+      - CHAINMAIL_HELMET
+      - CHAINMAIL_CHESTPLATE
+      - CHAINMAIL_LEGGINGS
+      - CHAINMAIL_BOOTS
+      - STONE_SWORD
+  iron:
+    icon: IRON_CHESTPLATE
+    items:
+      - IRON_HELMET
+      - IRON_CHESTPLATE
+      - IRON_LEGGINGS
+      - IRON_BOOTS
+      - IRON_SWORD
+      - SHIELD
+  diamond:
+    icon: DIAMOND_CHESTPLATE
+    items:
+      - DIAMOND_HELMET protection:2
+      - DIAMOND_CHESTPLATE protection:2
+      - DIAMOND_LEGGINGS protection:2
+      - DIAMOND_BOOTS protection:2
+      - DIAMOND_SWORD sharpness:2
+      - SHIELD
+  netherite:
+    icon: NETHERITE_CHESTPLATE
+    items:
+      - NETHERITE_HELMET protection:3
+      - NETHERITE_CHESTPLATE protection:3
+      - NETHERITE_LEGGINGS protection:3
+      - NETHERITE_BOOTS protection:3
+      - NETHERITE_SWORD sharpness:3 knockback:1
+      - SHIELD
+  axeman:
+    icon: IRON_AXE
+    items:
+      - IRON_HELMET
+      - IRON_CHESTPLATE
+      - IRON_LEGGINGS
+      - IRON_BOOTS
+      - DIAMOND_AXE sharpness:2

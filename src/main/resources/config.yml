@@ -1,0 +1,267 @@
+# NPC-Wars configuration.
+# Saved NPCs, their equipment and the teams live in data.yml (managed by the plugin, do not edit while running).
+# Built-in kits live in kits.yml. After editing this file run /npc reload.
+
+npc:
+  # Show the NPC's label above its head. Team names are never shown, whatever this is set to.
+  show-nametag: false
+  # NPCs take no damage outside of a running fight (staff can still /kill them).
+  invulnerable-when-idle: true
+  # Hard limit on saved NPCs.
+  max-npcs: 500
+  # Player name whose skin new NPCs wear (blank = the default Mannequin skin). Per NPC: /npc skin <id> <player>.
+  default-skin: ""
+  max-health: 20.0
+  # An NPC that dies outside of a fight comes back at its home position after this many seconds.
+  idle-respawn-delay-seconds: 3
+
+# NPCs have no vanilla AI, so the plugin moves them. Speeds are blocks per tick (20 ticks = 1 second).
+movement:
+  walk-speed: 0.215
+  sprint-speed: 0.28
+  sneak-speed: 0.065
+  swim-speed: 0.14
+  # After being hit, the NPC's own movement pauses this many ticks so knockback is visible.
+  knockback-grace-ticks: 6
+  # Jump automatically over one-block obstacles while walking.
+  auto-jump: true
+
+pathfinding:
+  enabled: true
+  # Cap on cells examined per search; bounds the cost of one path.
+  max-nodes: 1500
+  # Searches stay inside this many blocks around the NPC.
+  max-range: 64
+  # Time budget for ALL path searches per server tick, in microseconds. Extra requests wait for the next tick.
+  budget-micros-per-tick: 1500
+  # Block lookups are cached for this many ticks.
+  cache-ttl-ticks: 100
+  # An NPC asks for a new path at most this often.
+  repath-interval-ticks: 20
+  # 1.0 = shortest paths; higher = faster searches, slightly longer paths.
+  heuristic-weight: 1.3
+  # Largest drop (in blocks) an NPC will plan to jump down.
+  max-drop: 3
+
+fight:
+  # How far an NPC looks for enemies (blocks). 0 = unlimited.
+  target-radius: 64
+  # How often each NPC re-checks for a closer enemy. Searches are staggered across NPCs.
+  retarget-interval-ticks: 10
+  # How often the spatial index of fighters is rebuilt.
+  grid-refresh-ticks: 4
+  # Melee reach in blocks (measured to the target's hitbox).
+  attack-reach: 3.0
+  # Sprint towards targets that are further away than this.
+  sprint-distance: 6.0
+  # A new target replaces the current one only if it is closer than this fraction of the current distance.
+  switch-target-factor: 0.6
+  # What NPCs without a team do: FREE_FOR_ALL (fight everybody, each is its own side) or IDLE (stand still, but can
+  # still be attacked by the teams).
+  unteamed-npcs: FREE_FOR_ALL
+  # Players are valid targets (members of other teams, and anyone without a team).
+  target-players: true
+  ignore-creative-players: true
+  # Allow damage between members of the same team (only affects fights involving NPCs).
+  friendly-fire: false
+  # An NPC that is hit by an enemy may switch to the attacker.
+  retaliate: true
+  # End the fight automatically when at most one side is left.
+  auto-end: true
+  # What happens to an NPC that dies in a fight:
+  #   RESPAWN_ON_FIGHT_END - stays down until the fight ends, then returns at its home position
+  #   RESPAWN_DELAY        - returns after respawn-delay-seconds and rejoins the fight
+  #   REMOVE               - deleted permanently
+  on-death: RESPAWN_ON_FIGHT_END
+  respawn-delay-seconds: 10
+  heal-on-start: true
+  heal-on-end: true
+  # Multiplier applied to every NPC hit.
+  damage-multiplier: 1.0
+  critical-hits: true
+  # Lower bound for the time between hits, whatever the weapon.
+  min-attack-cooldown-ticks: 4
+  require-line-of-sight: true
+  # Who sees countdown and result announcements: ALL players, only STAFF (npcplugin.notify), or NONE.
+  announce: ALL
+  # Seconds before a scheduled fight at which a countdown message is sent.
+  countdown-marks: [60, 30, 10, 5, 4, 3, 2, 1]
+
+massaction:
+  # The "attack" action really hurts the enemy in front of the NPC (false = swing animation only).
+  attack-deals-damage: true
+  # Allow /massaction while a fight is running (it would fight with the combat AI).
+  allow-during-fight: false
+  # How long open-ended actions (walk, run, spin, follow, ...) run when no for=<time> is given.
+  default-duration: 10s
+
+kits:
+  # Applying a kit removes whatever else the NPC wears. false = only the slots the kit fills are replaced.
+  clear-before-apply: true
+
+# All texts use MiniMessage (https://docs.advntr.dev/minimessage/format.html). <prefix> is the prefix below.
+# Team names never appear in any of these in-game messages; only the admin commands /npc team list|info show them.
+messages:
+  prefix: '<dark_gray>[<gold>NPC-Wars<dark_gray>]<reset> '
+
+  general:
+    no-permission: '<prefix><red>You do not have permission to do that.'
+    players-only: '<prefix><red>This can only be used by a player in game.'
+    unknown-subcommand: '<prefix><red>Unknown sub-command <white><input><red>. Use <white>/<label> help<red>.'
+    usage: '<prefix><red>Usage: <white><usage>'
+    invalid-page: '<prefix><red><input> is not a valid page (1-<pages>).'
+    reloaded: '<prefix><green>Configuration and kits reloaded.'
+    saved: '<prefix><green>data.yml saved.'
+
+  help:
+    header: '<prefix><gold>/<label> <gray>- page <page>/<pages>'
+    entry: '<yellow><usage> <gray>- <description>'
+
+  action:
+    bad-argument: '<prefix><red>"<argument>" is not valid for the <white><action><red> action.'
+    missing-argument: '<prefix><red>The <white><action><red> action needs more arguments: <white><usage>'
+    need-player-in-world: '<prefix><red>"<direction>" needs you to be a player in the same world as the NPCs.'
+    player-offline: '<prefix><red>Player <white><player><red> is not online.'
+
+  npc:
+    spawned: '<prefix><green>Spawned NPC <white>#<id><green>. Shift + Right-click it to equip it.'
+    spawned-many: '<prefix><green>Spawned <white><count><green> NPCs.'
+    invalid-count: '<prefix><red>"<input>" is not a valid count (1-<max>).'
+    invalid-radius: '<prefix><red>"<input>" is not a valid radius (1-<max>).'
+    limit-reached: '<prefix><red>NPC limit reached (<max>). Raise npc.max-npcs in config.yml.'
+    removed: '<prefix><green>Removed <white><count><green> NPC(s).'
+    use-removeall: '<prefix><red>To delete every NPC use <white>/<label> removeall confirm<red>.'
+    removeall-confirm: '<prefix><red>This deletes all <white><count><red> NPCs. Run <white>/<label> removeall confirm<red> to continue.'
+    list-header: '<prefix><gold><count> NPC(s) <gray>- page <page>/<pages>'
+    list-entry: '<yellow>#<id> <white><label> <gray>team <white><team> <gray>[<state>] <location>'
+    info: '<prefix><gold>NPC #<id> <gray>(<label>)<newline><gray>State: <white><state><newline><gray>Team: <white><team><newline><gray>Position: <white><location><newline><gray>Skin: <white><skin><newline><gray>Equipped slots: <white><equipment>'
+    not-spawned: '<prefix><red>NPC #<id> is not spawned right now (its chunk or world is not loaded).'
+    teleported: '<prefix><green>Teleported to NPC #<id>.'
+    brought: '<prefix><green>Moved <white><count><green> NPC(s) to you.'
+    selection-cleared: '<prefix><green>Selection cleared.'
+    selection-list: '<prefix><gray>Selected (<count>): <white><ids>'
+    selected: '<prefix><green><count> NPC(s) selected. <gray>/kitall now applies kits to them.'
+    invalid-skin: '<prefix><red>"<input>" is not a valid player name (1-16 letters, digits or _).'
+    skin-set: '<prefix><green>Set the skin of <white><count><green> NPC(s) to <white><skin><green>.'
+    renamed: '<prefix><green>NPC #<id> is now labelled <white><label><green>.'
+    healed: '<prefix><green>Healed NPC #<id>.'
+    healed-many: '<prefix><green>Healed <white><count><green> NPC(s).'
+    not-found: '<prefix><red>No NPC matches "<input>".'
+    need-single: '<prefix><red>"<input>" matches more than one NPC; name exactly one.'
+    none-matched: '<prefix><red>None of those targets matched an NPC.'
+    none-exist: '<prefix><red>There are no NPCs yet. Spawn some with /npc spawn.'
+    invalid-target: '<prefix><red>"<input>" is not an NPC id, id list (1,2,3), range (3-9), all, selected, look or team:N.'
+    range-too-large: '<prefix><red>That id range is too large.'
+
+  team:
+    invalid-number: '<prefix><red>"<input>" is not a valid team number. Use a whole number from 1 up.'
+    added: '<prefix><green>Added <white><npcs><green> NPC(s) and <white><players><green> player(s) to team <white><team><green>.'
+    massadded: '<prefix><green>Team <white><team><green> now holds all <white><total><green> NPC(s) (<white><changed><green> added or moved).'
+    removed: '<prefix><green>Took <white><count><green> member(s) out of their team.'
+    none: '<prefix><gray>There are no teams yet. Create one with /npc team add 1 Steve (or an NPC id).'
+    list-header: '<prefix><gold><count> team(s) <dark_gray>(names are admin-only and never shown in game)'
+    list-entry: '<yellow>Team <team> <gray>name <white><name> <gray>NPCs <white><npcs> <gray>players <white><players>'
+    info: '<prefix><gold>Team <team><newline><gray>Admin name: <white><name><newline><gray>NPCs: <white><npcs><newline><gray>Players: <white><players>'
+    renamed: '<prefix><green>Team <white><team><green> is now called <white><name><green> (admin-only, never shown in game).'
+    name-cleared: '<prefix><green>Removed the admin name of team <white><team><green>.'
+    deleted: '<prefix><green>Deleted team <white><team><green>; its members are now team-less.'
+    not-found: '<prefix><red>Team <white><team><red> does not exist.'
+    unknown-member: '<prefix><red>"<input>" is not an NPC or a known player.'
+
+  fight:
+    scheduled: '<prefix><gold>A fight starts in <white><time><gold>!'
+    countdown: '<prefix><gold>The fight starts in <white><seconds><gold> second(s)!'
+    countdown-cancelled: '<prefix><yellow>The scheduled fight was cancelled.'
+    cancelled-not-enough-sides: '<prefix><red>The fight was cancelled: fewer than two sides are left.'
+    started: '<prefix><red><bold>The fight has begun!'
+    stopped: '<prefix><yellow>The fight was stopped.'
+    winner-team: '<prefix><green><bold>Team <team> wins the fight!'
+    winner-npc: '<prefix><green><bold>NPC #<id> wins the fight!'
+    winner-players: '<prefix><green><bold>The players win the fight!'
+    draw: '<prefix><yellow>Nobody is left standing: it is a draw.'
+    start-ok: '<prefix><green>Fight started.'
+    schedule-ok: '<prefix><green>Fight scheduled to start in <white><time><green>. Use /npc stopfight to cancel.'
+    already-running: '<prefix><red>A fight is already running. Use /npc stopfight to end it.'
+    no-npcs: '<prefix><red>There are no NPCs. Spawn some with /npc spawn or /npc spawnmany.'
+    not-enough-sides: '<prefix><red>A fight needs at least two sides, for example two teams of NPCs, or a team plus a player.'
+    nothing-to-stop: '<prefix><red>There is no fight to stop.'
+    invalid-time: '<prefix><red>"<input>" is not a time. Examples: 30s, 5m, 1h, 1h30m.'
+    time-range: '<prefix><red>"<input>" is out of range: use more than 0 seconds and at most 30 days.'
+
+  kits:
+    no-targets: '<prefix><red>No NPCs to apply a kit to (<scope>).'
+    none: '<prefix><red>No kits are available.'
+    empty-kit: '<prefix><red>Kit <white><kit><red> (<provider>) contains no usable items.'
+    applied: '<prefix><green>Applied kit <white><kit><green> (<provider>) to <white><count><green> NPC(s).'
+    invalid-name: '<prefix><red>"<input>" is not a valid kit name (lower-case letters, digits, _ and -, up to 32).'
+    nothing-to-save: '<prefix><red>Hold or wear something first: armor, off hand and hotbar are saved.'
+    invalid-icon: '<prefix><red>"<input>" is not an item.'
+    save-failed: '<prefix><red>Could not write kits.yml (see the console).'
+    created: '<prefix><green>Saved kit <white><kit><green> with <white><count><green> item(s).'
+    updated: '<prefix><green>Updated kit <white><kit><green> with <white><count><green> item(s).'
+    deleted: '<prefix><green>Deleted kit <white><kit><green>.'
+    not-found: '<prefix><red>No built-in kit named <white><kit><red>.'
+    list-header: '<prefix><gold><count> kit(s):'
+    list-entry: '<yellow><kit> <gray>(<provider>)'
+    provider-available: '<prefix><green><provider> <gray>- detected'
+    provider-missing: '<prefix><gray><provider> - not installed'
+
+  massaction:
+    list-header: '<prefix><gold>/<label> [action] [args] <gray>- available actions:'
+    list-entry: '<yellow><action> <usage> <gray>- <description>'
+    list-flags: '<gray>Flags (any order): <white>for=TIME<gray> (for example for=30s), <white>team=N<gray>, <white>npc=IDS<gray> (for example npc=1,2,5-9)'
+    unknown: '<prefix><red>Unknown action "<input>". Available: <white><actions>'
+    invalid-duration: '<prefix><red>"<input>" is not a duration. Examples: 5s, 30s, 2m (max 24h).'
+    no-npcs: '<prefix><red>No spawned NPCs match.'
+    during-fight: '<prefix><red>Mass actions are disabled while a fight is running (massaction.allow-during-fight).'
+    started: '<prefix><green>Action <white><action><green> started on <white><count><green> NPC(s).'
+
+  status:
+    line: '<prefix><gold>Fight: <white><state><gray> | NPCs: <white><live>/<total><gray> alive | fighters: <white><fighters><gray> | teams: <white><teams><gray> | queued paths: <white><paths>'
+    debug: '<prefix><gold>NPC #<id><newline><gray>Position: <white><position> <gray>health <white><health><newline><gray>Movement: <white><controller><newline><gray>Combat: <white><combat>'
+
+  gui:
+    equipment:
+      title: '<dark_gray>NPC #<id> equipment'
+      info-name: '<gold>NPC #<id>'
+      info-lore:
+        - '<gray>Label: <white><label>'
+        - '<gray>Team: <white><team>'
+        - ''
+        - '<gray>Click a slot with an item on your cursor to equip.'
+        - '<gray>Click a filled slot to take the item back.'
+      kit-name: '<green>Apply a kit'
+      kit-lore:
+        - '<gray>Pick a kit from EssentialsX, CMI or'
+        - '<gray>the built-in kits for this NPC.'
+      clear-name: '<red>Clear all equipment'
+      clear-lore:
+        - '<gray>Removes everything this NPC wears.'
+      heal-name: '<yellow>Heal'
+      heal-lore:
+        - '<gray>Restore this NPC to full health.'
+      empty-head: '<gray>Helmet slot'
+      empty-chest: '<gray>Chestplate slot'
+      empty-legs: '<gray>Leggings slot'
+      empty-feet: '<gray>Boots slot'
+      empty-main-hand: '<gray>Main hand (weapon)'
+      empty-off-hand: '<gray>Off hand (shield)'
+      empty-lore:
+        - '<dark_gray>Empty'
+      inventory-full: '<red>Your inventory is full.'
+      wrong-slot: '<red>That item does not go in this slot.'
+      slot-occupied: '<red>That slot is already filled. Take the item out first.'
+    kits:
+      title: '<dark_gray>Kits <gray>-> <scope>'
+      kit-name: '<yellow><kit>'
+      kit-lore:
+        - '<gray>Source: <white><provider>'
+        - ''
+        - '<green>Click to apply to <scope>'
+      previous: '<yellow>Previous page'
+      next: '<yellow>Next page'
+      info-name: '<gold>Page <page>/<pages>'
+      info-lore:
+        - '<gray>Applying to: <white><scope>'
+        - '<gray>Kits available: <white><kits>'
+      close: '<red>Close'
