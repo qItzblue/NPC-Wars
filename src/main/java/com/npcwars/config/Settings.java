@@ -101,6 +101,28 @@ public final class Settings {
     public int lifeDecisionMaxTicks;
     public com.npcwars.life.LifePlanner.Weights lifeWeights;
 
+    // ai chat
+    public boolean aiEnabled;
+    public String aiApiKey;
+    public String aiBaseUrl;
+    public String aiModel;
+    public String aiEffort;
+    public long aiMaxTokens;
+    public int aiTimeoutSeconds;
+    public double aiHearRadius;
+    public double aiMentionRadius;
+    public double aiReplyChance;
+    public long aiNpcCooldownTicks;
+    public long aiPlayerCooldownTicks;
+    public int aiMaxConcurrent;
+    public int aiMemoryTurns;
+    public boolean aiReplyNearbyOnly;
+    public double aiReplyRadius;
+    public int aiMaxChars;
+    public double aiTypingTicksPerChar;
+    public String aiFormat;
+    public String aiPersona;
+
     // routes
     public long routeWaypointTimeoutTicks;
 
@@ -192,6 +214,26 @@ public final class Settings {
                 c.getInt("life.weights.idle", 30), c.getInt("life.weights.look-around", 15),
                 c.getInt("life.weights.jump", 5), c.getInt("life.weights.sneak", 5), c.getInt("life.weights.swing", 5));
 
+        aiEnabled = c.getBoolean("ai.enabled", false);
+        aiApiKey = c.getString("ai.api-key", "");
+        aiBaseUrl = c.getString("ai.base-url", "");
+        aiModel = c.getString("ai.model", "claude-opus-5-5");
+        aiEffort = c.getString("ai.effort", "low");
+        aiMaxTokens = Math.max(256, Math.min(8192, c.getLong("ai.max-tokens", 1024L)));
+        aiTimeoutSeconds = Math.max(5, Math.min(300, c.getInt("ai.timeout-seconds", 30)));
+        aiHearRadius = clamp(c.getDouble("ai.hear-radius", 12.0), 1.0, 256.0);
+        aiMentionRadius = clamp(c.getDouble("ai.mention-radius", 48.0), aiHearRadius, 512.0);
+        aiReplyChance = clamp(c.getDouble("ai.reply-chance", 0.8), 0.0, 1.0);
+        aiNpcCooldownTicks = Math.max(0, c.getInt("ai.npc-cooldown-seconds", 6)) * 20L;
+        aiPlayerCooldownTicks = Math.max(0, c.getInt("ai.player-cooldown-seconds", 3)) * 20L;
+        aiMaxConcurrent = Math.max(1, Math.min(16, c.getInt("ai.max-concurrent", 2)));
+        aiMemoryTurns = Math.max(1, Math.min(40, c.getInt("ai.memory-turns", 8)));
+        aiReplyNearbyOnly = "NEARBY".equalsIgnoreCase(c.getString("ai.reply-scope", "ALL"));
+        aiReplyRadius = clamp(c.getDouble("ai.reply-radius", 48.0), 1.0, 1024.0);
+        aiMaxChars = Math.max(20, Math.min(256, c.getInt("ai.max-chars", 200)));
+        aiTypingTicksPerChar = clamp(c.getDouble("ai.typing-ticks-per-char", 1.0), 0.0, 5.0);
+        aiFormat = c.getString("ai.format", "<{name}> {message}");
+        aiPersona = c.getString("ai.persona", "");
         routeWaypointTimeoutTicks = Math.max(5, c.getInt("routes.waypoint-timeout-seconds", 30)) * 20L;
 
         autoDownloadOnStartup = c.getBoolean("auto-download.enabled", true) && c.getBoolean("auto-download.on-startup", true);

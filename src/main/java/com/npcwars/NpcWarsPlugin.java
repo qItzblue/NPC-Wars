@@ -10,6 +10,7 @@ import com.npcwars.command.KitAllCommand;
 import com.npcwars.command.MassActionCommand;
 import com.npcwars.command.NpcCommand;
 import com.npcwars.appearance.Pools;
+import com.npcwars.chat.ChatService;
 import com.npcwars.config.DataStore;
 import com.npcwars.route.RouteManager;
 import com.npcwars.route.RouteRunner;
@@ -68,6 +69,7 @@ public final class NpcWarsPlugin extends JavaPlugin {
     private LifeAi life;
     private RouteManager routes;
     private RouteRunner routeRunner;
+    private ChatService chat;
     private DependencyInstaller dependencies;
     private BukkitTask loop;
     private long tick;
@@ -100,6 +102,7 @@ public final class NpcWarsPlugin extends JavaPlugin {
         life = new LifeAi(this);
         routes = new RouteManager();
         routeRunner = new RouteRunner(this);
+        chat = new ChatService(this);
 
         loadData();
         data.setSnapshotter(this::snapshot);
@@ -129,6 +132,9 @@ public final class NpcWarsPlugin extends JavaPlugin {
         }
         if (routeRunner != null) {
             routeRunner.cancelAll();
+        }
+        if (chat != null) {
+            chat.shutdown();
         }
         for (Player player : new ArrayList<>(Bukkit.getOnlinePlayers())) {
             if (player.getOpenInventory().getTopInventory().getHolder(false) instanceof BaseGui) {
@@ -185,6 +191,7 @@ public final class NpcWarsPlugin extends JavaPlugin {
         messages.reload();
         kits.reload();
         pools.reload();
+        chat.reload();
         paths.shutdown();
     }
 
@@ -204,6 +211,10 @@ public final class NpcWarsPlugin extends JavaPlugin {
 
     public TeamManager teams() {
         return teams;
+    }
+
+    public ChatService chat() {
+        return chat;
     }
 
     public RouteManager routes() {
@@ -315,6 +326,7 @@ public final class NpcWarsPlugin extends JavaPlugin {
         manager.registerEvents(new NpcDamageListener(this), this);
         manager.registerEvents(new NpcLifecycleListener(this), this);
         manager.registerEvents(new GuiListener(), this);
+        manager.registerEvents(chat, this);
     }
 
     private void registerCommands() {

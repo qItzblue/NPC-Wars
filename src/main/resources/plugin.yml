@@ -5,6 +5,9 @@ api-version: '1.21.9'
 description: Equippable player-like NPCs with kits, mass actions, numbered teams and team fights.
 authors: [qItzblue]
 softdepend: [Essentials, CMI, Citizens]
+# The official Anthropic SDK (for the optional ai: chat) is fetched from Maven Central by the server on first start.
+libraries:
+  - com.anthropic:anthropic-java:2.34.0
 
 commands:
   npc:

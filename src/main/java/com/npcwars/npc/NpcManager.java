@@ -106,6 +106,9 @@ public final class NpcManager {
         npcs.remove(npc.id());
         plugin.teams().removeNpc(npc.id());
         selection.forget(npc.id());
+        plugin.chat().forget(npc);
+        plugin.routeRunner().release(npc);
+        plugin.life().release(npc);
         plugin.data().requestSave();
     }
 

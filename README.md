@@ -49,6 +49,13 @@ world load and chunk load, so there are never orphaned or duplicated NPCs.
 | `/massaction <action> [args] [for=<time>] [team=<n>] [npc=<ids>]` | `npcplugin.massaction` | Every NPC does the same thing |
 | `/npc deps [install [citizens\|essentialsx\|all]]` | `npcplugin.deps` | Show / download the optional plugins |
 | `/npc import citizens [all\|<ids>]` | `npcplugin.import` | Copy player NPCs from Citizens into NPC-Wars |
+| `/npc life <targets> <on\|off>`, `life status` | `npcplugin.npc` | Life mode: NPCs live like SMP players (see below) |
+| `/npc randomize <targets> [names\|skins\|both]` | `npcplugin.npc` | New random names / skins from the pools |
+| `/npc pool <names\|skins> <list\|add\|remove> [value]` | `npcplugin.npc` | Edit `pools.yml` |
+| `/npc path create\|add\|remove\|clear\|delete\|list\|info <name> ...` | `npcplugin.route` | Build waypoint routes |
+| `/npc path run <name> [targets] [speed=walk\|run] [spread=<n>] [fight=now\|<time>]` | `npcplugin.route` | Send NPCs along a route; optionally start the fight when the last one arrives |
+| `/npc path stop [name]` | `npcplugin.route` | Stop NPCs walking routes |
+| `/npc say <id> <text>`, `/npc ask <id> <text>`, `/npc persona <id> [text\|clear]`, `/npc ai status` | `npcplugin.npc` | NPC chat and its AI (see below) |
 | `/npc reload`, `/npc save` | `npcplugin.reload` | Reload config / write data now |
 | `/npc debug <id>` | `npcplugin.debug` | Movement and combat state of one NPC |
 
@@ -109,6 +116,33 @@ plugin, implement `KitProvider` and call `plugin.kits().register(...)`.
 - **Citizens import:** `/npc import citizens [all|<ids>]` creates NPC-Wars NPCs from Citizens player NPCs (position,
   name, skin, armor and hands). The Citizens NPCs are left alone; re-running skips NPCs already imported.
 
+## An SMP with NPCs: life mode, names, routes, AI chat
+
+- **Life mode** (`/npc life all on`, or `life.default-for-new-npcs: true`): while nothing else controls an NPC (no fight,
+  mass action or route) it wanders near its home, looks at nearby players, and fidgets (jump, sneak, swing). In life mode
+  NPCs take damage like survival players (`life.vulnerable`), respawn at home, and never fight on their own, so they can
+  live in survival with no fighting at all. Fights, mass actions and routes take over and hand control back afterwards.
+- **Random and settable names and skins:** `/npc spawn` and `spawnmany` give every NPC a random name and skin from
+  `pools.yml` (`appearance.random-on-spawn`); give your own with `/npc spawn <name> skin=<player>`, change them with
+  `/npc rename <id> <name>` and `/npc skin <ids> <player>`, or re-roll with `/npc randomize all`. Edit the pools by hand or
+  with `/npc pool`. Skins are Minecraft account names (the server downloads them). Names are shown above NPCs
+  (`npc.show-nametag`); team names never are.
+- **Routes:** `/npc path create arena`, stand at each point and `/npc path add arena` (or `add arena <x> <y> <z>` from the
+  console), then `/npc path run arena fight=10s`. NPCs fan out around each waypoint, walk the sequence with the pathfinder,
+  and when the last one has arrived the staff is told and the fight starts (`fight=now` or after a delay). Without `fight=`
+  the NPCs just stop at the end and you start the fight yourself with `/npc fight` or `/npc timefight`. An NPC that cannot
+  reach a waypoint within `routes.waypoint-timeout-seconds` skips it, so the sequence always completes.
+- **Fighting feel:** most swings connect (`fight.hit-chance`), some miss, NPCs sometimes pause before the next swing
+  (`fight.hesitate-*`), the arm swings on every attempt, and an empty-handed NPC picks up `fight.default-weapon` when a
+  fight starts so it visibly holds something.
+- **AI chat (optional, off by default):** with `ai.enabled: true` and an API key (the `ANTHROPIC_API_KEY` environment
+  variable, or `ai.api-key`), life-mode NPCs answer player chat in character, written by Claude through the official
+  Anthropic Java SDK. An NPC answers when its name is in the message, or when it is the nearest NPC within `ai.hear-radius`.
+  Each NPC remembers a few lines, can have its own `/npc persona`, and says honestly that it is an AI NPC if sincerely asked.
+  Calls run off the main thread with cooldowns and a concurrency cap; every answer costs API money (default model
+  `claude-opus-5-5`; `claude-haiku-4-5` with `effort: none` is far cheaper). Try it without chatting: `/npc ask <id> <text>`.
+  The SDK is downloaded by the server from Maven Central on first start (`libraries:` in plugin.yml).
+
 ## Performance notes (100+ NPCs)
 
 One tick loop drives everything on the main thread. Idle NPCs on dry land cost nothing per tick. Target searches use a
@@ -118,11 +152,14 @@ the main thread, so the Bukkit API is never touched off-thread.
 
 ## Limitations (please read)
 
-This was developed and unit-tested without access to a running Minecraft server. The pathfinder, team logic, spatial
-index, damage math, time parser, action registry and config consistency are covered by automated tests; behaviour that
-needs a live server (movement feel, knockback, GUI clicking, combat balance) was reviewed but not run. Everything
-that affects feel is configurable (`movement.*`, `fight.*`, `pathfinding.*`), and `/npc debug <id>` prints an NPC's
-movement/combat state to help tune it.
+The pure logic (pathfinder, teams, damage math, pacing, life planner, routes, chat helpers, downloader, config
+consistency) has automated tests. Spawning, life mode, routes with an automatic fight, fights between teams, the
+auto-download and the AI chat call (against a local fake API) were also run on a real Paper 1.21.11 server, driven from
+the console. Not verified, because it needs a client or real accounts: how everything *looks* (held items, hand swings,
+skins), the GUIs, player chat triggering NPC replies, the real Anthropic API, and combat balance with real players.
+Everything that affects feel is configurable (`movement.*`, `fight.*`, `life.*`, `pathfinding.*`), and `/npc debug <id>`
+prints an NPC's movement/combat state to help tune it. NPCs only act while their chunks are loaded (a player nearby, or a
+force-loaded chunk).
 
 - The CMI hook is reflection-based and unverified against a real CMI jar.
 - `/npc` is also Citizens' command name; if both are installed use the alias `/npcwars` (or `/npc-wars:npc`).
@@ -138,6 +175,10 @@ src/main/java/com/npcwars/
   npc/                     Npc, NpcManager, NpcSlot, NpcSelection;  npc/control/NpcController (movement)
   path/                    Terrain, PathFinder (A*), PathService (time-budgeted), BukkitTerrain
   team/                    Team, TeamManager (pure Java), TeamStorage
+  appearance/              Pools (names.yml-style pools), NamePicker
+  life/                    LifeAi (peaceful SMP behaviour), LifePlanner
+  route/                   Route, RouteManager, RouteStorage, RouteRunner
+  chat/                    ChatService, AnthropicChatBrain (official SDK), ChatMemory, PromptBuilder, ChatRouting
   dependency/              DependencyInstaller, Citizens / EssentialsX download sources, checked downloader
   integration/             CitizensImporter (the only class that uses the Citizens API)
   kit/                     KitProvider, KitRegistry, Built-in / Essentials / CMI providers, ItemParser, KitApplier
