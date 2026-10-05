@@ -9,7 +9,12 @@ import com.npcwars.combat.FightManager;
 import com.npcwars.command.KitAllCommand;
 import com.npcwars.command.MassActionCommand;
 import com.npcwars.command.NpcCommand;
+import com.npcwars.appearance.Pools;
 import com.npcwars.config.DataStore;
+import com.npcwars.route.RouteManager;
+import com.npcwars.route.RouteRunner;
+import com.npcwars.route.RouteStorage;
+import com.npcwars.life.LifeAi;
 import com.npcwars.config.Messages;
 import com.npcwars.config.Settings;
 import com.npcwars.gui.BaseGui;
@@ -59,6 +64,10 @@ public final class NpcWarsPlugin extends JavaPlugin {
     private Factions factions;
     private AttackExecutor attacks;
     private FightManager fights;
+    private Pools pools;
+    private LifeAi life;
+    private RouteManager routes;
+    private RouteRunner routeRunner;
     private DependencyInstaller dependencies;
     private BukkitTask loop;
     private long tick;
@@ -77,6 +86,7 @@ public final class NpcWarsPlugin extends JavaPlugin {
         data = new DataStore(this);
         teams = new TeamManager();
         npcs = new NpcManager(this);
+        pools = new Pools(this);
         paths = new PathService(settings);
         factions = new Factions(this);
         attacks = new AttackExecutor(this);
@@ -87,10 +97,14 @@ public final class NpcWarsPlugin extends JavaPlugin {
         kitApplier = new KitApplier(this);
         fights = new FightManager(this);
         dependencies = new DependencyInstaller(this);
+        life = new LifeAi(this);
+        routes = new RouteManager();
+        routeRunner = new RouteRunner(this);
 
         loadData();
         data.setSnapshotter(this::snapshot);
         teams.setChangeListener(data::requestSave);
+        routes.setChangeListener(data::requestSave);
 
         registerListeners();
         registerCommands();
@@ -112,6 +126,9 @@ public final class NpcWarsPlugin extends JavaPlugin {
         }
         if (runner != null) {
             runner.stopAll();
+        }
+        if (routeRunner != null) {
+            routeRunner.cancelAll();
         }
         for (Player player : new ArrayList<>(Bukkit.getOnlinePlayers())) {
             if (player.getOpenInventory().getTopInventory().getHolder(false) instanceof BaseGui) {
@@ -167,6 +184,7 @@ public final class NpcWarsPlugin extends JavaPlugin {
         settings.reload();
         messages.reload();
         kits.reload();
+        pools.reload();
         paths.shutdown();
     }
 
@@ -186,6 +204,27 @@ public final class NpcWarsPlugin extends JavaPlugin {
 
     public TeamManager teams() {
         return teams;
+    }
+
+    public RouteManager routes() {
+        return routes;
+    }
+
+    public RouteRunner routeRunner() {
+        return routeRunner;
+    }
+
+    public LifeAi life() {
+        return life;
+    }
+
+    /** @return {@code true} if a fight, a mass action or a route currently controls this NPC (life AI stays out) */
+    public boolean isNpcBusy(Npc npc) {
+        return fights.hasFighter(npc) || runner.isRunning(npc) || routeRunner.isOnRoute(npc);
+    }
+
+    public Pools pools() {
+        return pools;
     }
 
     public NpcManager npcs() {
@@ -250,6 +289,7 @@ public final class NpcWarsPlugin extends JavaPlugin {
         YamlConfiguration yaml = data.load();
         npcs.load(yaml);
         TeamStorage.load(teams, yaml, getLogger());
+        RouteStorage.load(routes, yaml, getLogger());
         // Forget team entries for NPCs that no longer exist (for example data.yml edited by hand).
         for (Team team : new ArrayList<>(teams.teams())) {
             for (int npcId : new ArrayList<>(team.npcIds())) {
@@ -265,6 +305,7 @@ public final class NpcWarsPlugin extends JavaPlugin {
         yaml.set("version", 1);
         npcs.save(yaml);
         TeamStorage.save(teams, yaml);
+        RouteStorage.save(routes, yaml);
         return yaml;
     }
 
@@ -298,7 +339,9 @@ public final class NpcWarsPlugin extends JavaPlugin {
         // Each stage is isolated, so a failure in one (say the fight AI) never freezes movement or respawning.
         stage("path service", () -> paths.tick(tick));
         stage("mass actions", () -> runner.tick(tick));
+        stage("routes", () -> routeRunner.tick(tick));
         stage("fight manager", () -> fights.tick(tick));
+        stage("life AI", () -> life.tick(tick));
         stage("NPC movement", () -> npcs.tickControllers(tick));
         stage("NPC maintenance", () -> npcs.maintenance(tick));
     }

@@ -47,12 +47,15 @@ final class NpcManagementCommands {
     // ---------------------------------------------------------------- spawning
 
     private static SubCommand spawn() {
-        return SubCommand.of("spawn", "npcplugin.npc", "spawn [label] [skin=<player>] [team=<n>]",
-                "Spawn an NPC where you stand", ctx -> {
+        return SubCommand.of("spawn", "npcplugin.npc", "spawn [name] [skin=<player|random|none>] [team=<n>]",
+                "Spawn an NPC where you stand (random name and skin unless you give them)", ctx -> {
                     Player player = ctx.player();
                     ArgFlags flags = ArgFlags.parse(ctx.args(), Set.of("skin", "team"));
                     String label = cleanLabel(String.join(" ", flags.positional()));
-                    String skin = skinOrNull(flags.get("skin"));
+                    if (label == null && ctx.plugin().settings().randomOnSpawn) {
+                        label = ctx.plugin().pools().randomName();
+                    }
+                    String skin = pickSkin(ctx.plugin(), flags.get("skin"));
                     int team = flags.has("team") ? ctx.teamNumber(flags.get("team")) : 0;
                     Location where = player.getLocation();
                     where.setPitch(0f);
@@ -79,7 +82,8 @@ final class NpcManagementCommands {
                     if (words.size() > 1) {
                         radius = parseInt(words.get(1), 1, 100, "npc.invalid-radius", Messages.var("max", 100));
                     }
-                    String skin = skinOrNull(flags.get("skin"));
+                    String skinFlag = flags.get("skin");
+                    pickSkin(ctx.plugin(), skinFlag); // validates the flag before anything is spawned
                     int team = flags.has("team") ? ctx.teamNumber(flags.get("team")) : 0;
                     NpcWarsPlugin plugin = ctx.plugin();
                     if (plugin.npcs().count() + count > plugin.settings().maxNpcs) {
@@ -97,7 +101,8 @@ final class NpcManagementCommands {
                             y = center.getY();
                         }
                         float yaw = (float) Math.toDegrees(Math.atan2(-(center.getX() - x), center.getZ() - z));
-                        Npc npc = create(plugin, new Location(world, x, y, z, yaw, 0f), null, skin);
+                        String label = plugin.settings().randomOnSpawn ? plugin.pools().randomName() : null;
+                        Npc npc = create(plugin, new Location(world, x, y, z, yaw, 0f), label, pickSkin(plugin, skinFlag));
                         if (team > 0) {
                             plugin.teams().addNpc(team, npc.id());
                         }
@@ -261,32 +266,36 @@ final class NpcManagementCommands {
     // ---------------------------------------------------------------- styling
 
     private static SubCommand skin() {
-        return SubCommand.of("skin", "npcplugin.npc", "skin <id|ids|selected|all> <player|reset>",
-                "Give NPCs a player's skin", ctx -> {
+        return SubCommand.of("skin", "npcplugin.npc", "skin <id|ids|selected|all> <player|random|reset>",
+                "Give NPCs a player's skin (random = a different one from the pool for each)", ctx -> {
                     String value = ctx.arg(ctx.size() - 1);
+                    boolean random = value.equalsIgnoreCase("random");
                     boolean reset = value.equalsIgnoreCase("reset") || value.equalsIgnoreCase("default");
-                    String skin = reset ? null : skinOrNull(value);
-                    if (!reset && skin == null) {
+                    String fixed = reset || random ? null : skinOrNull(value);
+                    if (!reset && !random && fixed == null) {
                         throw new CommandException("npc.invalid-skin", Messages.var("input", value));
                     }
                     List<Npc> targets = Targets.manyOf(ctx, ctx.args().subList(0, ctx.size() - 1));
                     for (Npc npc : targets) {
-                        ctx.plugin().npcs().setSkin(npc, skin);
+                        ctx.plugin().npcs().setSkin(npc, random ? ctx.plugin().pools().randomSkin() : fixed);
                     }
-                    ctx.send("npc.skin-set", Messages.var("count", targets.size()), Messages.var("skin", skin == null ? "default" : skin));
+                    ctx.send("npc.skin-set", Messages.var("count", targets.size()),
+                            Messages.var("skin", random ? "random" : fixed == null ? "default" : fixed));
                 }).minArgs(2).complete(ctx -> {
                     List<String> options = new ArrayList<>(Targets.npcSuggestions(ctx));
                     Bukkit.getOnlinePlayers().forEach(p -> options.add(p.getName()));
                     options.add("reset");
+                    options.add("random");
                     return Completions.filter(options, ctx.last());
                 });
     }
 
     private static SubCommand rename() {
-        return SubCommand.of("rename", "npcplugin.npc", "rename <id> <label...>",
-                "Change an NPC's label (admin label; shown above it only if npc.show-nametag is on)", ctx -> {
+        return SubCommand.of("rename", "npcplugin.npc", "rename <id> <name...|random>",
+                "Change an NPC's name (shown above it when npc.show-nametag is on)", ctx -> {
                     Npc npc = Targets.single(ctx, ctx.arg(0));
-                    String label = cleanLabel(String.join(" ", ctx.args().subList(1, ctx.size())));
+                    String typed = String.join(" ", ctx.args().subList(1, ctx.size()));
+                    String label = typed.equalsIgnoreCase("random") ? ctx.plugin().pools().randomName() : cleanLabel(typed);
                     ctx.plugin().npcs().setLabel(npc, label == null ? "NPC " + npc.id() : label);
                     ctx.send("npc.renamed", Messages.var("id", npc.id()), Messages.var("label", npc.label()));
                 }).minArgs(2).complete(ctx -> ctx.size() == 1 ? Completions.filter(ctx.plugin().npcs().idStrings(), ctx.last()) : List.of());
@@ -336,6 +345,29 @@ final class NpcManagementCommands {
             return null;
         }
         return trimmed.length() > MAX_LABEL_LENGTH ? trimmed.substring(0, MAX_LABEL_LENGTH) : trimmed;
+    }
+
+    /**
+     * Resolves a {@code skin=} flag: a player name, {@code random} (from the pool), {@code none} (the default skin) or,
+     * when the flag is absent, a random one if {@code appearance.random-on-spawn} is on.
+     *
+     * @throws CommandException if the flag is not a valid player name
+     */
+    static String pickSkin(NpcWarsPlugin plugin, String flag) throws CommandException {
+        if (flag == null) {
+            return plugin.settings().randomOnSpawn ? plugin.pools().randomSkin() : null;
+        }
+        if (flag.equalsIgnoreCase("random")) {
+            return plugin.pools().randomSkin();
+        }
+        if (flag.equalsIgnoreCase("none") || flag.equalsIgnoreCase("default")) {
+            return null;
+        }
+        String skin = skinOrNull(flag);
+        if (skin == null) {
+            throw new CommandException("npc.invalid-skin", Messages.var("input", flag));
+        }
+        return skin;
     }
 
     private static String skinOrNull(String text) {

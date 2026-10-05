@@ -62,6 +62,11 @@ public final class FightManager {
         return state == State.RUNNING;
     }
 
+    /** @return {@code true} if this NPC is currently taking part in the running fight */
+    public boolean hasFighter(Npc npc) {
+        return fighters.containsKey(npc.id());
+    }
+
     public int fighterCount() {
         return fighters.size();
     }
@@ -173,6 +178,7 @@ public final class FightManager {
         Settings settings = plugin.settings();
         long tick = plugin.currentTick();
         plugin.runner().stopAll();
+        plugin.routeRunner().cancelAll();
         for (Npc npc : plugin.npcs().all()) {
             npc.setSuppressed(false);
             npc.setRespawnAtTick(0);
@@ -180,6 +186,7 @@ public final class FightManager {
                 plugin.npcs().spawnBody(npc);
             }
             npc.controller().reset();
+            giveDefaultWeapon(npc, settings);
             if (settings.healOnStart) {
                 plugin.npcs().heal(npc);
             }
@@ -197,6 +204,13 @@ public final class FightManager {
         syncFighters(tick);
         plugin.messages().announce("fight.started");
         return true;
+    }
+
+    /** An empty-handed NPC picks up the configured default weapon so it visibly holds something. */
+    private void giveDefaultWeapon(Npc npc, Settings settings) {
+        if (settings.defaultWeapon != null && npc.equipment(com.npcwars.npc.NpcSlot.MAIN_HAND) == null) {
+            plugin.npcs().setEquipment(npc, com.npcwars.npc.NpcSlot.MAIN_HAND, new org.bukkit.inventory.ItemStack(settings.defaultWeapon));
+        }
     }
 
     private void end(EndReason reason, int winnerSide) {
@@ -389,8 +403,15 @@ public final class FightManager {
                 controller.stop();
             }
             controller.face(target.getLocation().add(0, target.getHeight() * 0.6, 0));
-            if (tick >= fighter.nextAttackTick && plugin.attacks().strike(npc, target)) {
-                fighter.nextAttackTick = tick + plugin.attacks().cooldownTicks(npc);
+            if (tick >= fighter.nextAttackTick) {
+                var pacing = settings.pacing();
+                var random = java.util.concurrent.ThreadLocalRandom.current();
+                boolean done = AttackPacing.connects(random, pacing)
+                        ? plugin.attacks().strike(npc, target)
+                        : plugin.attacks().miss(npc, target);
+                if (done) {
+                    fighter.nextAttackTick = tick + AttackPacing.nextDelay(random, plugin.attacks().cooldownTicks(npc), pacing);
+                }
             }
             return;
         }

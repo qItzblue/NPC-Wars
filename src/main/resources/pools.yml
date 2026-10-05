@@ -1,0 +1,50 @@
+# Pools used for random NPC names and skins (edit by hand or with /npc pool).
+# Skins are Minecraft player names; the server downloads the skin of that account.
+names:
+  - Skyler
+  - Mason_MC
+  - xCreeperx
+  - BlockBuddy
+  - Pixel_Pete
+  - Lunar
+  - Ember
+  - Kai
+  - RedstoneRay
+  - Maple
+  - Finn
+  - ZedTheBuilder
+  - Willow
+  - Cobalt
+  - Juno
+  - Rowan
+  - Ash
+  - Nova
+  - Tiber
+  - Sage
+  - MiningMike
+  - Poppy
+  - Orion
+  - Jasper
+  - Quill
+  - Frostbite
+  - Wren
+  - Basil
+  - Theo
+  - Indigo
+  - Hazel
+  - Rook
+  - Dusty
+  - Comet
+  - Marlow
+  - Piper
+  - Onyx
+  - Clover
+  - Ziggy
+  - Briar
+skins:
+  - Notch
+  - jeb_
+  - Searge
+  - Grumm
+  - C418
+  - Dinnerbone

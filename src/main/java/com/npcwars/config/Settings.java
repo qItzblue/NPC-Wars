@@ -27,6 +27,7 @@ public final class Settings {
 
     // npc
     public boolean showNametag;
+    public boolean randomOnSpawn;
     public boolean invulnerableWhenIdle;
     public int maxNpcs;
     public String defaultSkin;
@@ -74,6 +75,12 @@ public final class Settings {
     public Announce announce;
     public List<Integer> countdownMarks = List.of();
     public boolean requireLineOfSight;
+    public double hitChance;
+    public double hesitateChance;
+    public int hesitateMinTicks;
+    public int hesitateMaxTicks;
+    public int attackJitterTicks;
+    public org.bukkit.Material defaultWeapon;
 
     // massaction
     public boolean attackDealsDamage;
@@ -82,6 +89,20 @@ public final class Settings {
 
     // kits
     public boolean clearBeforeApply;
+
+    // life
+    public boolean lifeEnabled;
+    public boolean lifeDefault;
+    public boolean lifeVulnerable;
+    public double lifeWanderRadius;
+    public double lifeWanderMin;
+    public double lifeLookRadius;
+    public int lifeDecisionMinTicks;
+    public int lifeDecisionMaxTicks;
+    public com.npcwars.life.LifePlanner.Weights lifeWeights;
+
+    // routes
+    public long routeWaypointTimeoutTicks;
 
     // auto-download
     public boolean autoDownloadOnStartup;
@@ -93,10 +114,16 @@ public final class Settings {
     }
 
     /** Re-reads every value from the plugin's current {@link FileConfiguration}. */
+    /** @return the pacing parameters for fights (hit chance, hesitation, jitter) */
+    public com.npcwars.combat.AttackPacing.Params pacing() {
+        return new com.npcwars.combat.AttackPacing.Params(hitChance, hesitateChance, hesitateMinTicks, hesitateMaxTicks, attackJitterTicks);
+    }
+
     public void reload() {
         FileConfiguration c = plugin.getConfig();
 
-        showNametag = c.getBoolean("npc.show-nametag", false);
+        showNametag = c.getBoolean("npc.show-nametag", true);
+        randomOnSpawn = c.getBoolean("appearance.random-on-spawn", true);
         invulnerableWhenIdle = c.getBoolean("npc.invulnerable-when-idle", true);
         maxNpcs = Math.max(1, c.getInt("npc.max-npcs", 500));
         defaultSkin = c.getString("npc.default-skin", "");
@@ -140,10 +167,32 @@ public final class Settings {
         minAttackCooldownTicks = Math.max(1, c.getInt("fight.min-attack-cooldown-ticks", 4));
         announce = parseEnum(Announce.class, c.getString("fight.announce"), Announce.ALL);
         requireLineOfSight = c.getBoolean("fight.require-line-of-sight", true);
+        hitChance = clamp(c.getDouble("fight.hit-chance", 0.85), 0.0, 1.0);
+        hesitateChance = clamp(c.getDouble("fight.hesitate-chance", 0.12), 0.0, 1.0);
+        hesitateMinTicks = Math.max(0, c.getInt("fight.hesitate-min-ticks", 4));
+        hesitateMaxTicks = Math.max(hesitateMinTicks, c.getInt("fight.hesitate-max-ticks", 14));
+        attackJitterTicks = Math.max(0, c.getInt("fight.attack-jitter-ticks", 2));
+        String weapon = c.getString("fight.default-weapon", "STONE_SWORD");
+        defaultWeapon = weapon == null || weapon.isBlank() || weapon.equalsIgnoreCase("none")
+                ? null : org.bukkit.Material.matchMaterial(weapon.trim());
         List<Integer> marks = new ArrayList<>(c.getIntegerList("fight.countdown-marks"));
         marks.removeIf(mark -> mark <= 0);
         marks.sort(java.util.Comparator.reverseOrder());
         countdownMarks = List.copyOf(marks);
+
+        lifeEnabled = c.getBoolean("life.enabled", true);
+        lifeDefault = c.getBoolean("life.default-for-new-npcs", false);
+        lifeVulnerable = c.getBoolean("life.vulnerable", true);
+        lifeWanderRadius = clamp(c.getDouble("life.wander-radius", 10.0), 2.0, 64.0);
+        lifeWanderMin = clamp(c.getDouble("life.wander-min-distance", 3.0), 1.0, lifeWanderRadius);
+        lifeLookRadius = clamp(c.getDouble("life.look-radius", 8.0), 0.0, 48.0);
+        lifeDecisionMinTicks = Math.max(1, (int) (c.getDouble("life.decision-min-seconds", 3.0) * 20));
+        lifeDecisionMaxTicks = Math.max(lifeDecisionMinTicks, (int) (c.getDouble("life.decision-max-seconds", 10.0) * 20));
+        lifeWeights = new com.npcwars.life.LifePlanner.Weights(c.getInt("life.weights.wander", 40),
+                c.getInt("life.weights.idle", 30), c.getInt("life.weights.look-around", 15),
+                c.getInt("life.weights.jump", 5), c.getInt("life.weights.sneak", 5), c.getInt("life.weights.swing", 5));
+
+        routeWaypointTimeoutTicks = Math.max(5, c.getInt("routes.waypoint-timeout-seconds", 30)) * 20L;
 
         autoDownloadOnStartup = c.getBoolean("auto-download.enabled", true) && c.getBoolean("auto-download.on-startup", true);
         Set<String> wanted = new java.util.HashSet<>();

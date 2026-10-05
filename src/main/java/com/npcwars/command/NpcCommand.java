@@ -20,6 +20,9 @@ public final class NpcCommand implements TabExecutor {
         KitCommands.register(router);
         AdminCommands.register(router);
         IntegrationCommands.register(router);
+        AppearanceCommands.register(router);
+        LifeCommands.register(router);
+        RouteCommands.register(router);
     }
 
     @Override

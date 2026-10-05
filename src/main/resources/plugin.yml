@@ -42,6 +42,7 @@ permissions:
       npcplugin.debug: true
       npcplugin.deps: true
       npcplugin.import: true
+      npcplugin.route: true
   npcplugin.use:
     description: Use the /npc command (help and read-only subcommands such as list and info).
     default: false
@@ -93,6 +94,11 @@ permissions:
       npcplugin.use: true
   npcplugin.import:
     description: Import NPCs from Citizens (/npc import citizens).
+    default: false
+    children:
+      npcplugin.use: true
+  npcplugin.route:
+    description: Build routes and send NPCs along them (/npc path).
     default: false
     children:
       npcplugin.use: true

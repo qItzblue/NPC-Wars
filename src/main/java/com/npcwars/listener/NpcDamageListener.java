@@ -26,7 +26,9 @@ public final class NpcDamageListener implements Listener {
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onDamage(EntityDamageEvent event) {
         Npc victim = plugin.npcs().byEntity(event.getEntity());
-        if (victim != null && plugin.settings().invulnerableWhenIdle && !plugin.fights().isRunning()) {
+        boolean survival = victim != null && plugin.settings().lifeVulnerable
+                && victim.behavior() == com.npcwars.npc.Behavior.LIFE;
+        if (victim != null && !survival && plugin.settings().invulnerableWhenIdle && !plugin.fights().isRunning()) {
             switch (event.getCause()) {
                 case VOID, KILL, SUICIDE -> { }
                 default -> {

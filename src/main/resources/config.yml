@@ -3,8 +3,8 @@
 # Built-in kits live in kits.yml. After editing this file run /npc reload.
 
 npc:
-  # Show the NPC's label above its head. Team names are never shown, whatever this is set to.
-  show-nametag: false
+  # Show the NPC's name above its head. Team names are never shown, whatever this is set to.
+  show-nametag: true
   # NPCs take no damage outside of a running fight (staff can still /kill them).
   invulnerable-when-idle: true
   # Hard limit on saved NPCs.
@@ -81,6 +81,14 @@ fight:
   critical-hits: true
   # Lower bound for the time between hits, whatever the weapon.
   min-attack-cooldown-ticks: 4
+  # Fighting that is not robotic: most swings connect, some miss, and sometimes an NPC pauses before swinging again.
+  hit-chance: 0.85
+  hesitate-chance: 0.12
+  hesitate-min-ticks: 4
+  hesitate-max-ticks: 14
+  attack-jitter-ticks: 2
+  # An NPC with an empty main hand picks this up when a fight starts, so it visibly holds a weapon (NONE = leave empty).
+  default-weapon: STONE_SWORD
   require-line-of-sight: true
   # Who sees countdown and result announcements: ALL players, only STAFF (npcplugin.notify), or NONE.
   announce: ALL
@@ -94,6 +102,39 @@ massaction:
   allow-during-fight: false
   # How long open-ended actions (walk, run, spin, follow, ...) run when no for=<time> is given.
   default-duration: 10s
+
+# "Life" mode makes NPCs behave like players on an SMP while nothing else controls them (no fight, mass action or path):
+# they wander near their home, look at nearby players, fidget (jump, sneak, swing) and, with the ai: section on, chat.
+# Turn it on per NPC with /npc life <targets> on, or for every new NPC with default-for-new-npcs.
+life:
+  enabled: true
+  default-for-new-npcs: false
+  # Life NPCs can be hurt and killed like players in survival (they respawn at home after npc.idle-respawn-delay-seconds)
+  # and never fight back on their own. false = they stay invulnerable outside fights like other NPCs.
+  vulnerable: true
+  wander-radius: 10
+  wander-min-distance: 3
+  look-radius: 8
+  decision-min-seconds: 3
+  decision-max-seconds: 10
+  # How likely each thing is when an NPC decides what to do next (relative numbers).
+  weights:
+    wander: 40
+    idle: 30
+    look-around: 15
+    jump: 5
+    sneak: 5
+    swing: 5
+
+# Routes (/npc path): waypoint sequences NPCs walk, optionally ending in a fight.
+routes:
+  # An NPC that cannot reach a waypoint within this time skips it, so a stuck NPC never blocks the sequence.
+  waypoint-timeout-seconds: 30
+
+# Random names and skins. The pools live in pools.yml (edit it, or use /npc pool).
+appearance:
+  # /npc spawn and spawnmany give each NPC a random name and skin unless you set them (name, skin=<player>).
+  random-on-spawn: true
 
 # Downloads missing optional plugins into the plugins folder when the server starts. They load on the NEXT restart.
 # Sources: Citizens from its own build server (ci.citizensnpcs.co, no API key exists), EssentialsX (the kit plugin)
@@ -218,6 +259,50 @@ messages:
     nothing: '<prefix><red>No Citizens player NPCs were imported (<skipped> skipped: not player NPCs, unplaced or already imported).'
     done: '<prefix><green>Imported <white><count><green> NPC(s) from Citizens (<skipped> skipped).'
     limit: '<prefix><red>Stopped at the limit of <white><max><red> NPCs (npc.max-npcs).'
+
+  route:
+    invalid-name: '<prefix><red>"<input>" is not a valid route name (letters, digits, _ and -, up to 24).'
+    exists: '<prefix><red>A route named <white><route><red> already exists.'
+    not-found: '<prefix><red>No route named <white><route><red>. See <white>/npc path list<red>.'
+    created: '<prefix><green>Created route <white><route><green> in world <white><world><green>. Add waypoints with <white>/npc path add <route><green>.'
+    point-added: '<prefix><green>Waypoint <white>#<index><green> added to <white><route><green> (<where>).'
+    point-removed: '<prefix><green>Removed waypoint <white>#<index><green> from <white><route><green>.'
+    invalid-index: '<prefix><red>"<input>" is not a waypoint number (1-<max>).'
+    invalid-coordinate: '<prefix><red>"<input>" is not a valid coordinate.'
+    world-mismatch: '<prefix><red>Route <white><route><red> is in world <white><world><red>; stand in that world to add waypoints.'
+    cleared: '<prefix><green>Removed every waypoint from <white><route><green>.'
+    deleted: '<prefix><green>Deleted route <white><route><green>.'
+    none: '<prefix><red>There are no routes yet. Create one with <white>/npc path create <name><red>.'
+    list-header: '<prefix><gold><count> route(s):'
+    list-entry: '<yellow><route> <gray>- <points> waypoint(s), world <world>'
+    info: '<prefix><gold>Route <white><route><gold>: <points> waypoint(s), about <length> blocks, world <world>'
+    info-point: '<gray>  #<index> <white><where>'
+    empty: '<prefix><red>Route <white><route><red> has no waypoints yet.'
+    invalid-speed: '<prefix><red>"<input>" is not a speed. Use walk or run.'
+    invalid-spread: '<prefix><red>"<input>" is not a number of blocks.'
+    nobody: '<prefix><red>No living NPCs in the world of route <white><route><red> to send. (Targets must be spawned.)'
+    run-started: '<prefix><green>Sent <white><count><green> NPC(s) along <white><route><green>; they will <then>.'
+    stopped: '<prefix><green>Stopped <white><count><green> NPC(s) walking routes.'
+    finished: '<prefix><gold>All <white><count><gold> NPC(s) have reached the end of route <white><route><gold>.'
+    finished-hint: '<prefix><gray>Start the fight with <white>/npc fight<gray> or <white>/npc timefight <time><gray>.'
+    fight-started: '<prefix><green>The fight was started automatically.'
+    fight-scheduled: '<prefix><green>The fight starts in <white><time><green>.'
+    fight-not-possible: '<prefix><red>The fight could not start: it needs at least two sides (teams) that can fight.'
+
+  life:
+    enabled: '<prefix><green><count> NPC(s) now live like players: they wander, look at players and can be hurt.'
+    disabled: '<prefix><green><count> NPC(s) now stand still.'
+    status: '<prefix><gold>Life mode: <white><life>/<total><gold> NPC(s) in life mode, master switch <white><enabled><gold>.'
+
+  appearance:
+    randomized: '<prefix><green>Gave <white><count><green> NPC(s) new random <what>.'
+    pool-list: '<prefix><gold><count> <kind>: <white><values>'
+    pool-empty: '<prefix><red>The <kind> pool is empty. Add some with <white>/npc pool <kind> add <value><red>.'
+    pool-added: '<prefix><green>Added <white><input><green> to the <kind> pool.'
+    pool-removed: '<prefix><green>Removed <white><input><green> from the <kind> pool.'
+    pool-missing: '<prefix><red><input> is not in the <kind> pool.'
+    pool-duplicate: '<prefix><red><input> is already in the pool.'
+    invalid-value: '<prefix><red>"<input>" is not a valid entry for the <kind> pool (names: up to 16 letters, digits, space, _ . -; skins: a Minecraft player name).'
 
   kits:
     no-targets: '<prefix><red>No NPCs to apply a kit to (<scope>).'

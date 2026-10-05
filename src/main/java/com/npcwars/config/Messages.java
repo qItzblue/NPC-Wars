@@ -39,19 +39,35 @@ public final class Messages {
         single.clear();
         lists.clear();
         reportedMissing.clear();
-        ConfigurationSection section = plugin.getConfig().getConfigurationSection("messages");
-        if (section == null) {
+        // The defaults bundled in the jar come first, so a config.yml written by an older version still has every key
+        // that a newer version added; the server's own config.yml then overrides them.
+        org.bukkit.configuration.Configuration defaults = plugin.getConfig().getDefaults();
+        boolean any = false;
+        if (defaults != null) {
+            any |= load(defaults.getConfigurationSection("messages"));
+        }
+        any |= load(plugin.getConfig().getConfigurationSection("messages"));
+        if (!any) {
             plugin.getLogger().warning("config.yml has no 'messages' section; message keys will show as placeholders.");
             return;
+        }
+        prefix = single.getOrDefault("prefix", "");
+    }
+
+    private boolean load(ConfigurationSection section) {
+        if (section == null) {
+            return false;
         }
         for (String key : section.getKeys(true)) {
             if (section.isList(key)) {
                 lists.put(key, new ArrayList<>(section.getStringList(key)));
+                single.remove(key);
             } else if (section.isString(key)) {
                 single.put(key, section.getString(key));
+                lists.remove(key);
             }
         }
-        prefix = single.getOrDefault("prefix", "");
+        return true;
     }
 
     /** Builds a {@code <name>} placeholder whose value is inserted as plain, unformatted text. */
@@ -106,6 +122,17 @@ public final class Messages {
         Bukkit.getConsoleSender().sendMessage(message);
         for (org.bukkit.entity.Player player : Bukkit.getOnlinePlayers()) {
             if (scope == Settings.Announce.ALL || player.hasPermission("npcplugin.notify")) {
+                player.sendMessage(message);
+            }
+        }
+    }
+
+    /** Sends a message to the console and to online players who may run fights or get notifications. */
+    public void notifyStaff(String key, TagResolver... resolvers) {
+        Component message = render(key, resolvers);
+        Bukkit.getConsoleSender().sendMessage(message);
+        for (org.bukkit.entity.Player player : Bukkit.getOnlinePlayers()) {
+            if (player.hasPermission("npcplugin.notify") || player.hasPermission("npcplugin.fight")) {
                 player.sendMessage(message);
             }
         }

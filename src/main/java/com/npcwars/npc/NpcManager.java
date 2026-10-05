@@ -92,6 +92,7 @@ public final class NpcManager {
         int id = nextId++;
         Npc npc = new Npc(plugin, id, label == null || label.isBlank() ? "NPC " + id : label, home);
         npc.setSkin(skin);
+        npc.setBehavior(plugin.settings().lifeDefault ? Behavior.LIFE : Behavior.STILL);
         npcs.put(npc.id(), npc);
         spawnBody(npc);
         plugin.data().requestSave();
@@ -398,6 +399,12 @@ public final class NpcManager {
             if (npc.skin() != null) {
                 entry.set("skin", npc.skin());
             }
+            if (npc.behavior() != Behavior.STILL) {
+                entry.set("behavior", npc.behavior().name().toLowerCase(java.util.Locale.ROOT));
+            }
+            if (npc.persona() != null) {
+                entry.set("persona", npc.persona());
+            }
             for (Map.Entry<NpcSlot, ItemStack> item : npc.equipmentView().entrySet()) {
                 entry.set("equipment." + item.getKey().key(),
                         Base64.getEncoder().encodeToString(item.getValue().serializeAsBytes()));
@@ -430,6 +437,8 @@ public final class NpcManager {
                 npc.setHome(entry.getString("world"), entry.getDouble("x"), entry.getDouble("y"),
                         entry.getDouble("z"), (float) entry.getDouble("yaw"), (float) entry.getDouble("pitch"));
                 npc.setSkin(entry.getString("skin"));
+                npc.setBehavior(Behavior.parse(entry.getString("behavior"), Behavior.STILL));
+                npc.setPersona(entry.getString("persona"));
                 ConfigurationSection gear = entry.getConfigurationSection("equipment");
                 if (gear != null) {
                     for (String slotKey : gear.getKeys(false)) {

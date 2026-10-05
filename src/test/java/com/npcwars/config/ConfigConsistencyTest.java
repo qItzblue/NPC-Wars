@@ -36,7 +36,7 @@ import org.junit.jupiter.api.Test;
 class ConfigConsistencyTest {
 
     private static final Pattern KEY = Pattern.compile(
-            "\"((?:general|npc|team|fight|kits|massaction|action|help|status|gui)\\.[a-z0-9.\\-]+)\"");
+            "\"((?:general|npc|team|fight|kits|massaction|action|help|status|gui|deps|import|appearance|life|route|ai)\\.[a-z0-9.\\-]+)\"");
     private static final Set<String> MINIMESSAGE_TAGS = Set.of("prefix", "newline", "reset", "bold", "red", "green",
             "yellow", "gold", "gray", "white", "dark_gray");
 
@@ -130,7 +130,7 @@ class ConfigConsistencyTest {
         assertEquals("RESPAWN_ON_FIGHT_END", config.getString("fight.on-death"));
         assertEquals("FREE_FOR_ALL", config.getString("fight.unteamed-npcs"));
         assertTrue(config.getBoolean("npc.invulnerable-when-idle"));
-        assertFalse(config.getBoolean("npc.show-nametag"), "nametags are off by default");
+        assertTrue(config.getBoolean("npc.show-nametag"), "names are shown by default so random names are visible");
         assertFalse(config.getBoolean("fight.friendly-fire"));
         assertEquals(List.of(60, 30, 10, 5, 4, 3, 2, 1), config.getIntegerList("fight.countdown-marks"));
     }

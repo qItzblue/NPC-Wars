@@ -104,6 +104,21 @@ public final class AttackExecutor {
     }
 
     /**
+     * A swing that does not connect: the arm swings and the NPC faces the target, but nothing is hurt.
+     *
+     * @return {@code false} if the NPC is not in a state where swinging makes sense
+     */
+    public boolean miss(Npc npc, LivingEntity target) {
+        Mannequin body = npc.entity();
+        if (body == null || !body.isValid() || body.isDead() || !target.isValid() || target.isDead()) {
+            return false;
+        }
+        body.swingMainHand();
+        npc.controller().face(target.getEyeLocation().add(0, -target.getHeight() * 0.25, 0));
+        return true;
+    }
+
+    /**
      * Hits the nearest enemy within reach that is in front of the NPC (used by the {@code attack} mass action).
      *
      * @return {@code true} if something was hit
