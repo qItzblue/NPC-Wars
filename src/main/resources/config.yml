@@ -95,6 +95,17 @@ massaction:
   # How long open-ended actions (walk, run, spin, follow, ...) run when no for=<time> is given.
   default-duration: 10s
 
+# Downloads missing optional plugins into the plugins folder when the server starts. They load on the NEXT restart.
+# Sources: Citizens from its own build server (ci.citizensnpcs.co, no API key exists), EssentialsX (the kit plugin)
+# from Modrinth (SHA-512 verified). Only those hosts are accepted, jars are checked to really be that plugin, and
+# an existing plugin or file is never replaced. Set enabled: false to turn it all off; /npc deps install still works.
+auto-download:
+  enabled: true
+  on-startup: true
+  plugins:
+    citizens: true
+    essentialsx: true
+
 kits:
   # Applying a kit removes whatever else the NPC wears. false = only the slots the kit fills are replaced.
   clear-before-apply: true
@@ -187,6 +198,24 @@ messages:
     nothing-to-stop: '<prefix><red>There is no fight to stop.'
     invalid-time: '<prefix><red>"<input>" is not a time. Examples: 30s, 5m, 1h, 1h30m.'
     time-range: '<prefix><red>"<input>" is out of range: use more than 0 seconds and at most 30 days.'
+
+  deps:
+    status-header: '<prefix><gold>Optional plugins:'
+    status-line: '<yellow><plugin><gray>: <white><state>'
+    started: '<prefix><gray>Downloading in the background, the result follows...'
+    busy: '<prefix><red>A download is already running.'
+    unknown: '<prefix><red>Unknown plugin <white><input><red>. Use citizens, essentialsx or all.'
+    installed: '<prefix><green>Downloaded <white><plugin><green> (<detail>). <yellow>Restart the server to load it.'
+    present: '<prefix><gray><plugin> is already installed.'
+    unavailable: '<prefix><red>No <white><plugin><red> download found: <detail>'
+    failed: '<prefix><red>Could not download <white><plugin><red>: <detail>'
+
+  import:
+    citizens-missing: '<prefix><red>Citizens is not running. Use <white>/npc deps install citizens<red> and restart the server.'
+    invalid-ids: '<prefix><red>"<input>" is not a list of Citizens NPC ids (examples: 3, 1,2,7, 5-9, all).'
+    nothing: '<prefix><red>No Citizens player NPCs were imported (<skipped> skipped: not player NPCs, unplaced or already imported).'
+    done: '<prefix><green>Imported <white><count><green> NPC(s) from Citizens (<skipped> skipped).'
+    limit: '<prefix><red>Stopped at the limit of <white><max><red> NPCs (npc.max-npcs).'
 
   kits:
     no-targets: '<prefix><red>No NPCs to apply a kit to (<scope>).'

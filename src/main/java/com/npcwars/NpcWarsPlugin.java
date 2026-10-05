@@ -15,6 +15,8 @@ import com.npcwars.config.Settings;
 import com.npcwars.gui.BaseGui;
 import com.npcwars.gui.GuiListener;
 import com.npcwars.kit.KitApplier;
+import com.npcwars.dependency.DependencyInstaller;
+import com.npcwars.dependency.PluginSource;
 import com.npcwars.kit.KitRegistry;
 import com.npcwars.listener.NpcDamageListener;
 import com.npcwars.listener.NpcInteractListener;
@@ -26,6 +28,7 @@ import com.npcwars.team.Team;
 import com.npcwars.team.TeamManager;
 import com.npcwars.team.TeamStorage;
 import java.util.ArrayList;
+import java.util.List;
 import org.bukkit.Bukkit;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -56,6 +59,7 @@ public final class NpcWarsPlugin extends JavaPlugin {
     private Factions factions;
     private AttackExecutor attacks;
     private FightManager fights;
+    private DependencyInstaller dependencies;
     private BukkitTask loop;
     private long tick;
     private final java.util.Map<String, Long> lastErrorTick = new java.util.HashMap<>();
@@ -82,6 +86,7 @@ public final class NpcWarsPlugin extends JavaPlugin {
         kits = new KitRegistry(this);
         kitApplier = new KitApplier(this);
         fights = new FightManager(this);
+        dependencies = new DependencyInstaller(this);
 
         loadData();
         data.setSnapshotter(this::snapshot);
@@ -93,6 +98,7 @@ public final class NpcWarsPlugin extends JavaPlugin {
         for (var world : Bukkit.getWorlds()) {
             npcs.onWorldLoad(world);
         }
+        downloadMissingPlugins();
         getLogger().info("Loaded " + npcs.count() + " NPC(s) and " + teams.teams().size() + " team(s).");
     }
 
@@ -122,6 +128,35 @@ public final class NpcWarsPlugin extends JavaPlugin {
         if (paths != null) {
             paths.shutdown();
         }
+    }
+
+    /** Downloads Citizens / EssentialsX when {@code auto-download} asks for it; they load on the next server start. */
+    private void downloadMissingPlugins() {
+        if (!settings.autoDownloadOnStartup) {
+            return;
+        }
+        List<PluginSource> wanted = new ArrayList<>();
+        for (PluginSource source : dependencies.sources()) {
+            if (settings.autoDownloadPlugins.contains(source.configKey())) {
+                wanted.add(source);
+            }
+        }
+        if (wanted.isEmpty()) {
+            return;
+        }
+        dependencies.install(wanted, outcomes -> {
+            for (DependencyInstaller.Outcome outcome : outcomes) {
+                switch (outcome.status()) {
+                    case INSTALLED -> getLogger().warning("Downloaded " + outcome.source().pluginName() + " ("
+                            + outcome.detail() + "). Restart the server to load it.");
+                    case UNAVAILABLE -> getLogger().info("Could not auto-download " + outcome.source().pluginName()
+                            + ": " + outcome.detail());
+                    case FAILED -> getLogger().warning("Could not auto-download " + outcome.source().pluginName()
+                            + ": " + outcome.detail());
+                    case PRESENT -> { }
+                }
+            }
+        });
     }
 
     /** Reloads config.yml, messages and kits.yml. NPC and team data stay as they are in memory. */
@@ -169,6 +204,10 @@ public final class NpcWarsPlugin extends JavaPlugin {
     }
 
     /** Registry of kit sources; register your own {@code KitProvider} here. */
+    public DependencyInstaller dependencies() {
+        return dependencies;
+    }
+
     public KitRegistry kits() {
         return kits;
     }

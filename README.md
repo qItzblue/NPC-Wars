@@ -47,6 +47,8 @@ world load and chunk load, so there are never orphaned or duplicated NPCs.
 | `/npc kit create <name> [icon]`, `delete`, `list`, `providers` | `npcplugin.kit` | Built-in kits; see all kit sources |
 | `/kitall [all\|selected\|team <n>\|npc <id>]` | `npcplugin.kit` | Menu of every kit from every provider; click to apply |
 | `/massaction <action> [args] [for=<time>] [team=<n>] [npc=<ids>]` | `npcplugin.massaction` | Every NPC does the same thing |
+| `/npc deps [install [citizens\|essentialsx\|all]]` | `npcplugin.deps` | Show / download the optional plugins |
+| `/npc import citizens [all\|<ids>]` | `npcplugin.import` | Copy player NPCs from Citizens into NPC-Wars |
 | `/npc reload`, `/npc save` | `npcplugin.reload` | Reload config / write data now |
 | `/npc debug <id>` | `npcplugin.debug` | Movement and combat state of one NPC |
 
@@ -96,6 +98,17 @@ New actions are one small class: implement `NpcAction`, call `plugin.actions().r
 Armor goes to the matching slot, the strongest weapon to the main hand, a shield to the off hand. To add another kit
 plugin, implement `KitProvider` and call `plugin.kits().register(...)`.
 
+## Auto-download and Citizens
+
+- **Auto-download** (`auto-download` in config.yml, on by default): at startup, a missing **Citizens** and **EssentialsX**
+  (the kit plugin) are downloaded into `plugins/`. They load on the **next restart**; jars are never hot-loaded.
+  Citizens has no API key; it is fetched from its public build server (`ci.citizensnpcs.co`). EssentialsX comes from
+  Modrinth and its SHA-512 is verified. Only those hosts are accepted (also after redirects), the file must be a jar whose
+  plugin.yml names the right plugin, and nothing already installed is replaced. Turn it off with
+  `auto-download.enabled: false`; `/npc deps install` still downloads on demand. CMI is paid and is never downloaded.
+- **Citizens import:** `/npc import citizens [all|<ids>]` creates NPC-Wars NPCs from Citizens player NPCs (position,
+  name, skin, armor and hands). The Citizens NPCs are left alone; re-running skips NPCs already imported.
+
 ## Performance notes (100+ NPCs)
 
 One tick loop drives everything on the main thread. Idle NPCs on dry land cost nothing per tick. Target searches use a
@@ -125,6 +138,8 @@ src/main/java/com/npcwars/
   npc/                     Npc, NpcManager, NpcSlot, NpcSelection;  npc/control/NpcController (movement)
   path/                    Terrain, PathFinder (A*), PathService (time-budgeted), BukkitTerrain
   team/                    Team, TeamManager (pure Java), TeamStorage
+  dependency/              DependencyInstaller, Citizens / EssentialsX download sources, checked downloader
+  integration/             CitizensImporter (the only class that uses the Citizens API)
   kit/                     KitProvider, KitRegistry, Built-in / Essentials / CMI providers, ItemParser, KitApplier
   action/                  NpcAction, ActionRegistry, ActionRunner;  action/builtin/ (attack, move, walk, ...)
   combat/                  FightManager, TargetSelector, SpatialGrid, AttackExecutor, DamageCalculator, Factions

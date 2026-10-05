@@ -5,6 +5,7 @@ import com.npcwars.util.TimeParser;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import org.bukkit.configuration.file.FileConfiguration;
 
 /**
@@ -82,6 +83,10 @@ public final class Settings {
     // kits
     public boolean clearBeforeApply;
 
+    // auto-download
+    public boolean autoDownloadOnStartup;
+    public Set<String> autoDownloadPlugins = Set.of();
+
     public Settings(NpcWarsPlugin plugin) {
         this.plugin = plugin;
         reload();
@@ -139,6 +144,15 @@ public final class Settings {
         marks.removeIf(mark -> mark <= 0);
         marks.sort(java.util.Comparator.reverseOrder());
         countdownMarks = List.copyOf(marks);
+
+        autoDownloadOnStartup = c.getBoolean("auto-download.enabled", true) && c.getBoolean("auto-download.on-startup", true);
+        Set<String> wanted = new java.util.HashSet<>();
+        for (String key : new String[] {"citizens", "essentialsx"}) {
+            if (c.getBoolean("auto-download.plugins." + key, true)) {
+                wanted.add(key);
+            }
+        }
+        autoDownloadPlugins = Set.copyOf(wanted);
 
         attackDealsDamage = c.getBoolean("massaction.attack-deals-damage", true);
         allowMassActionDuringFight = c.getBoolean("massaction.allow-during-fight", false);

@@ -4,7 +4,7 @@ version: '${project.version}'
 api-version: '1.21.9'
 description: Equippable player-like NPCs with kits, mass actions, numbered teams and team fights.
 authors: [qItzblue]
-softdepend: [Essentials, CMI]
+softdepend: [Essentials, CMI, Citizens]
 
 commands:
   npc:
@@ -40,6 +40,8 @@ permissions:
       npcplugin.reload: true
       npcplugin.notify: true
       npcplugin.debug: true
+      npcplugin.deps: true
+      npcplugin.import: true
   npcplugin.use:
     description: Use the /npc command (help and read-only subcommands such as list and info).
     default: false
@@ -81,6 +83,16 @@ permissions:
     default: false
   npcplugin.debug:
     description: Use /npc debug.
+    default: false
+    children:
+      npcplugin.use: true
+  npcplugin.deps:
+    description: Download the optional plugins Citizens and EssentialsX (/npc deps).
+    default: false
+    children:
+      npcplugin.use: true
+  npcplugin.import:
+    description: Import NPCs from Citizens (/npc import citizens).
     default: false
     children:
       npcplugin.use: true
