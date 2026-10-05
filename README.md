@@ -175,7 +175,7 @@ src/main/java/com/npcwars/
   npc/                     Npc, NpcManager, NpcSlot, NpcSelection;  npc/control/NpcController (movement)
   path/                    Terrain, PathFinder (A*), PathService (time-budgeted), BukkitTerrain
   team/                    Team, TeamManager (pure Java), TeamStorage
-  appearance/              Pools (names.yml-style pools), NamePicker
+  appearance/              Pools (pools.yml), NamePicker
   life/                    LifeAi (peaceful SMP behaviour), LifePlanner
   route/                   Route, RouteManager, RouteStorage, RouteRunner
   chat/                    ChatService, AnthropicChatBrain (official SDK), ChatMemory, PromptBuilder, ChatRouting
