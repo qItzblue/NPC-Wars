@@ -106,7 +106,6 @@ public final class NpcManager {
         npcs.remove(npc.id());
         plugin.teams().removeNpc(npc.id());
         selection.forget(npc.id());
-        plugin.chat().forget(npc);
         plugin.routeRunner().release(npc);
         plugin.life().release(npc);
         plugin.data().requestSave();
@@ -405,9 +404,6 @@ public final class NpcManager {
             if (npc.behavior() != Behavior.STILL) {
                 entry.set("behavior", npc.behavior().name().toLowerCase(java.util.Locale.ROOT));
             }
-            if (npc.persona() != null) {
-                entry.set("persona", npc.persona());
-            }
             for (Map.Entry<NpcSlot, ItemStack> item : npc.equipmentView().entrySet()) {
                 entry.set("equipment." + item.getKey().key(),
                         Base64.getEncoder().encodeToString(item.getValue().serializeAsBytes()));
@@ -441,7 +437,6 @@ public final class NpcManager {
                         entry.getDouble("z"), (float) entry.getDouble("yaw"), (float) entry.getDouble("pitch"));
                 npc.setSkin(entry.getString("skin"));
                 npc.setBehavior(Behavior.parse(entry.getString("behavior"), Behavior.STILL));
-                npc.setPersona(entry.getString("persona"));
                 ConfigurationSection gear = entry.getConfigurationSection("equipment");
                 if (gear != null) {
                     for (String slotKey : gear.getKeys(false)) {

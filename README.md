@@ -55,7 +55,7 @@ world load and chunk load, so there are never orphaned or duplicated NPCs.
 | `/npc path create\|add\|remove\|clear\|delete\|list\|info <name> ...` | `npcplugin.route` | Build waypoint routes |
 | `/npc path run <name> [targets] [speed=walk\|run] [spread=<n>] [fight=now\|<time>]` | `npcplugin.route` | Send NPCs along a route; optionally start the fight when the last one arrives |
 | `/npc path stop [name]` | `npcplugin.route` | Stop NPCs walking routes |
-| `/npc say <id> <text>`, `/npc ask <id> <text>`, `/npc persona <id> [text\|clear]`, `/npc ai status` | `npcplugin.npc` | NPC chat and its AI (see below) |
+| `/npc say <id> <text>` | `npcplugin.npc` | Make an NPC say something in chat |
 | `/npc reload`, `/npc save` | `npcplugin.reload` | Reload config / write data now |
 | `/npc debug <id>` | `npcplugin.debug` | Movement and combat state of one NPC |
 
@@ -116,7 +116,7 @@ plugin, implement `KitProvider` and call `plugin.kits().register(...)`.
 - **Citizens import:** `/npc import citizens [all|<ids>]` creates NPC-Wars NPCs from Citizens player NPCs (position,
   name, skin, armor and hands). The Citizens NPCs are left alone; re-running skips NPCs already imported.
 
-## An SMP with NPCs: life mode, names, routes, AI chat
+## An SMP with NPCs: life mode, names, routes
 
 - **Life mode** (`/npc life all on`, or `life.default-for-new-npcs: true`): while nothing else controls an NPC (no fight,
   mass action or route) it wanders near its home, looks at nearby players, and fidgets (jump, sneak, swing). In life mode
@@ -135,13 +135,6 @@ plugin, implement `KitProvider` and call `plugin.kits().register(...)`.
 - **Fighting feel:** most swings connect (`fight.hit-chance`), some miss, NPCs sometimes pause before the next swing
   (`fight.hesitate-*`), the arm swings on every attempt, and an empty-handed NPC picks up `fight.default-weapon` when a
   fight starts so it visibly holds something.
-- **AI chat (optional, off by default):** with `ai.enabled: true` and an API key (the `ANTHROPIC_API_KEY` environment
-  variable, or `ai.api-key`), life-mode NPCs answer player chat in character, written by Claude through the official
-  Anthropic Java SDK. An NPC answers when its name is in the message, or when it is the nearest NPC within `ai.hear-radius`.
-  Each NPC remembers a few lines, can have its own `/npc persona`, and says honestly that it is an AI NPC if sincerely asked.
-  Calls run off the main thread with cooldowns and a concurrency cap; every answer costs API money (default model
-  `claude-opus-5-5`; `claude-haiku-4-5` with `effort: none` is far cheaper). Try it without chatting: `/npc ask <id> <text>`.
-  The SDK is downloaded by the server from Maven Central on first start (`libraries:` in plugin.yml).
 
 ## Performance notes (100+ NPCs)
 
@@ -152,11 +145,11 @@ the main thread, so the Bukkit API is never touched off-thread.
 
 ## Limitations (please read)
 
-The pure logic (pathfinder, teams, damage math, pacing, life planner, routes, chat helpers, downloader, config
+The pure logic (pathfinder, teams, damage math, pacing, life planner, routes, downloader, config
 consistency) has automated tests. Spawning, life mode, routes with an automatic fight, fights between teams, the
 auto-download and the AI chat call (against a local fake API) were also run on a real Paper 1.21.11 server, driven from
 the console. Not verified, because it needs a client or real accounts: how everything *looks* (held items, hand swings,
-skins), the GUIs, player chat triggering NPC replies, the real Anthropic API, and combat balance with real players.
+skins), the GUIs, and combat balance with real players.
 Everything that affects feel is configurable (`movement.*`, `fight.*`, `life.*`, `pathfinding.*`), and `/npc debug <id>`
 prints an NPC's movement/combat state to help tune it. NPCs only act while their chunks are loaded (a player nearby, or a
 force-loaded chunk).
@@ -178,7 +171,6 @@ src/main/java/com/npcwars/
   appearance/              Pools (pools.yml), NamePicker
   life/                    LifeAi (peaceful SMP behaviour), LifePlanner
   route/                   Route, RouteManager, RouteStorage, RouteRunner
-  chat/                    ChatService, AnthropicChatBrain (official SDK), ChatMemory, PromptBuilder, ChatRouting
   dependency/              DependencyInstaller, Citizens / EssentialsX download sources, checked downloader
   integration/             CitizensImporter (the only class that uses the Citizens API)
   kit/                     KitProvider, KitRegistry, Built-in / Essentials / CMI providers, ItemParser, KitApplier

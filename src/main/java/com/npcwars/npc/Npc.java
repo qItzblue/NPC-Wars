@@ -29,7 +29,6 @@ public final class Npc {
     private float pitch;
     private String skin;
     private Behavior behavior = Behavior.STILL;
-    private String persona;
 
     private Mannequin entity;
     /** While {@code true} the maintenance task will not respawn this NPC (it is waiting for a fight to end). */
@@ -75,15 +74,6 @@ public final class Npc {
 
     public void setBehavior(Behavior behavior) {
         this.behavior = behavior == null ? Behavior.STILL : behavior;
-    }
-
-    /** @return the chat personality text for this NPC, or {@code null} to use the default one */
-    public String persona() {
-        return persona;
-    }
-
-    public void setPersona(String persona) {
-        this.persona = persona == null || persona.isBlank() ? null : persona.trim();
     }
 
     public String worldName() {

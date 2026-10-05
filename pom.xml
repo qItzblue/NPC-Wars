@@ -18,7 +18,6 @@
         <!-- Mannequin entities need Paper 1.21.9 or newer. Change this to build against another version. -->
         <paper.version>1.21.11-R0.1-SNAPSHOT</paper.version>
         <junit.version>5.11.4</junit.version>
-        <anthropic.version>2.34.0</anthropic.version>
     </properties>
 
     <repositories>
@@ -52,15 +51,6 @@
                     <artifactId>*</artifactId>
                 </exclusion>
             </exclusions>
-        </dependency>
-
-        <!-- Official Anthropic SDK for the optional NPC chat. Compile-only: the server downloads it at startup through the
-             "libraries" entry in plugin.yml (Maven Central), so the plugin jar stays small. -->
-        <dependency>
-            <groupId>com.anthropic</groupId>
-            <artifactId>anthropic-java</artifactId>
-            <version>${anthropic.version}</version>
-            <scope>provided</scope>
         </dependency>
 
         <dependency>

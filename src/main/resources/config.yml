@@ -126,42 +126,6 @@ life:
     sneak: 5
     swing: 5
 
-# AI chat: NPCs in life mode answer player chat, with replies written by Claude (official Anthropic SDK).
-# Off by default. It needs an API key: put it in the ANTHROPIC_API_KEY environment variable (best), or below.
-# An NPC answers when its name is in the message, or when it is the nearest life NPC within hear-radius.
-# Every answer is an API call that costs money, so the limits below matter. Players can always ask the NPC whether it
-# is an AI and it will say so. Try it without chatting: /npc ask <id> <message> (works from the console).
-ai:
-  enabled: false
-  api-key: ''
-  # Leave empty for the official API. Set it to use a proxy or a gateway.
-  base-url: ''
-  # Any Claude model id. claude-haiku-4-5 is much cheaper and faster (set effort to none for it).
-  model: claude-opus-5-5
-  # low, medium, high, xhigh, max, or none to send no effort setting (Haiku 4.5 and older Sonnets reject it).
-  effort: low
-  max-tokens: 1024
-  timeout-seconds: 30
-  hear-radius: 12
-  mention-radius: 48
-  # Chance that the nearest NPC answers a message that does not name anyone.
-  reply-chance: 0.8
-  npc-cooldown-seconds: 6
-  player-cooldown-seconds: 3
-  # Requests running at the same time; more messages are ignored until one finishes.
-  max-concurrent: 2
-  # Lines of conversation each NPC remembers.
-  memory-turns: 8
-  # ALL = everyone sees the reply, NEARBY = players within reply-radius.
-  reply-scope: ALL
-  reply-radius: 48
-  max-chars: 200
-  # Replies appear after a short "typing" delay of this many ticks per character (at most 5 seconds).
-  typing-ticks-per-char: 1.0
-  format: '<{name}> {message}'
-  # Default personality for every NPC (override per NPC with /npc persona <id> <text>).
-  persona: 'You are friendly and a bit sarcastic, and you like mining, building and exploring.'
-
 # Routes (/npc path): waypoint sequences NPCs walk, optionally ending in a fight.
 routes:
   # An NPC that cannot reach a waypoint within this time skips it, so a stuck NPC never blocks the sequence.
@@ -295,18 +259,6 @@ messages:
     nothing: '<prefix><red>No Citizens player NPCs were imported (<skipped> skipped: not player NPCs, unplaced or already imported).'
     done: '<prefix><green>Imported <white><count><green> NPC(s) from Citizens (<skipped> skipped).'
     limit: '<prefix><red>Stopped at the limit of <white><max><red> NPCs (npc.max-npcs).'
-
-  ai:
-    disabled: '<prefix><red>AI chat is off. Set <white>ai.enabled: true<red> in config.yml and reload.'
-    no-key: '<prefix><red>No API key. Set the ANTHROPIC_API_KEY environment variable or <white>ai.api-key<red> in config.yml.'
-    not-spawned: '<prefix><red>NPC <white>#<id><red> is not spawned right now.'
-    busy: '<prefix><red>Too many AI requests are running; try again in a moment.'
-    asked: '<prefix><gray>Asked NPC <white>#<id><gray>; the answer appears in chat.'
-    persona-show: '<prefix><gold>NPC #<id> persona: <white><persona>'
-    persona-set: '<prefix><green>NPC #<id> has a new persona (its chat memory was reset).'
-    persona-cleared: '<prefix><green>NPC #<id> uses the default persona again.'
-    persona-too-long: '<prefix><red>That persona is too long (at most <max> characters).'
-    status: '<prefix><gold>AI chat: <white><enabled><gold>, API key <white><key><gold>, model <white><model><gold>, running <white><inflight><gold>, answered <white><replies><gold>, failed <white><failures><gold>, last error: <white><error>'
 
   route:
     invalid-name: '<prefix><red>"<input>" is not a valid route name (letters, digits, _ and -, up to 24).'
