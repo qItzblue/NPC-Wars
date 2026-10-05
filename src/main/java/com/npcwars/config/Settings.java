@@ -148,7 +148,7 @@ public final class Settings {
         autoDownloadOnStartup = c.getBoolean("auto-download.enabled", true) && c.getBoolean("auto-download.on-startup", true);
         Set<String> wanted = new java.util.HashSet<>();
         for (String key : new String[] {"citizens", "essentialsx"}) {
-            if (c.getBoolean("auto-download.plugins." + key, true)) {
+            if (c.getBoolean("auto-download.plugins." + key, !key.equals("citizens"))) {
                 wanted.add(key);
             }
         }

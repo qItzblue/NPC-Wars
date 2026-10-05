@@ -102,7 +102,7 @@ plugin, implement `KitProvider` and call `plugin.kits().register(...)`.
 
 - **Auto-download** (`auto-download` in config.yml, on by default): at startup, a missing **Citizens** and **EssentialsX**
   (the kit plugin) are downloaded into `plugins/`. They load on the **next restart**; jars are never hot-loaded.
-  Citizens has no API key; it is fetched from its public build server (`ci.citizensnpcs.co`). EssentialsX comes from
+  Citizens is **off** by default in `auto-download.plugins` (its newest build may not support your Minecraft version and it takes over `/npc`; use `/npcwars` then). Citizens has no API key; it is fetched from its public build server (`ci.citizensnpcs.co`). EssentialsX comes from
   Modrinth and its SHA-512 is verified. Only those hosts are accepted (also after redirects), the file must be a jar whose
   plugin.yml names the right plugin, and nothing already installed is replaced. Turn it off with
   `auto-download.enabled: false`; `/npc deps install` still downloads on demand. CMI is paid and is never downloaded.

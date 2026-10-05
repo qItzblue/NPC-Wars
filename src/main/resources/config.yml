@@ -103,7 +103,9 @@ auto-download:
   enabled: true
   on-startup: true
   plugins:
-    citizens: true
+    # Off by default: Citizens' newest build may not support your Minecraft version (it then disables itself but still
+    # owns /npc), and when it works it takes /npc from NPC-Wars (use /npcwars then). Only needed for /npc import citizens.
+    citizens: false
     essentialsx: true
 
 kits:

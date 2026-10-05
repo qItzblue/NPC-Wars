@@ -148,7 +148,9 @@ public final class NpcWarsPlugin extends JavaPlugin {
             for (DependencyInstaller.Outcome outcome : outcomes) {
                 switch (outcome.status()) {
                     case INSTALLED -> getLogger().warning("Downloaded " + outcome.source().pluginName() + " ("
-                            + outcome.detail() + "). Restart the server to load it.");
+                            + outcome.detail() + "). Restart the server to load it."
+                            + ("Citizens".equals(outcome.source().pluginName())
+                                    ? " Citizens also uses /npc, so use /npcwars for NPC-Wars." : ""));
                     case UNAVAILABLE -> getLogger().info("Could not auto-download " + outcome.source().pluginName()
                             + ": " + outcome.detail());
                     case FAILED -> getLogger().warning("Could not auto-download " + outcome.source().pluginName()

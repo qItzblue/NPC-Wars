@@ -199,7 +199,6 @@ public final class NpcManager {
         applyAppearance(npc, body);
         EntityEquipment equipment = body.getEquipment();
         for (NpcSlot slot : NpcSlot.values()) {
-            equipment.setDropChance(slot.bukkit(), 0f);
             equipment.setItem(slot.bukkit(), npc.equipment(slot), true);
         }
     }
