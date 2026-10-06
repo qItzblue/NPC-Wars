@@ -1,0 +1,17 @@
+# Build output
+target/
+*.class
+*.jar
+dependency-reduced-pom.xml
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+
+# Local test server
+run/
+*.log

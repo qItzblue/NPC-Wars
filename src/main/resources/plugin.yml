@@ -1,0 +1,112 @@
+name: NPC-Wars
+main: com.npcwars.NpcWarsPlugin
+version: '${project.version}'
+api-version: '1.21.9'
+description: Real player NPCs (on Citizens) with kits, mass actions, numbered teams and team fights.
+authors: [qItzblue]
+# Citizens provides the NPC bodies. It is a soft dependency only so that NPC-Wars can explain what is wrong, and
+# download the right Citizens build, instead of Paper refusing to load it with a bare error.
+softdepend: [Citizens, Essentials, CMI]
+
+commands:
+  npcwars:
+    description: Manage NPCs, teams and fights.
+    usage: /<command> help
+    aliases: [nw]
+    permission: npcplugin.use
+    permission-message: '§cYou do not have permission to use this command.'
+  kitall:
+    description: Open the combined kit menu (EssentialsX, CMI and built-in kits) and apply a kit to NPCs.
+    usage: /<command> [all|selected|team <n>]
+    permission: npcplugin.kit
+    permission-message: '§cYou do not have permission to use this command.'
+  massaction:
+    description: Make many NPCs perform the same action at once.
+    usage: /<command> <action> [args...] [for=<time>] [team=<n>] [npc=<ids>]
+    aliases: [mass]
+    permission: npcplugin.massaction
+    permission-message: '§cYou do not have permission to use this command.'
+
+permissions:
+  npcplugin.admin:
+    description: Full access to every NPC-Wars feature.
+    default: op
+    children:
+      npcplugin.use: true
+      npcplugin.npc: true
+      npcplugin.equip: true
+      npcplugin.team: true
+      npcplugin.fight: true
+      npcplugin.kit: true
+      npcplugin.massaction: true
+      npcplugin.reload: true
+      npcplugin.notify: true
+      npcplugin.debug: true
+      npcplugin.deps: true
+      npcplugin.import: true
+      npcplugin.route: true
+      npcplugin.stick: true
+  npcplugin.use:
+    description: Use the /npcwars command (help and read-only subcommands such as list and info).
+    default: false
+  npcplugin.npc:
+    description: Spawn, remove, move, rename, skin and select NPCs.
+    default: false
+    children:
+      npcplugin.use: true
+  npcplugin.equip:
+    description: Open the equipment GUI (Shift + Right-click an NPC, or /npcwars equip).
+    default: false
+    children:
+      npcplugin.use: true
+  npcplugin.team:
+    description: Manage teams (/npcwars team ...).
+    default: false
+    children:
+      npcplugin.use: true
+  npcplugin.fight:
+    description: Start, schedule and stop fights (/npcwars fight, /npcwars timefight, /npcwars stopfight).
+    default: false
+    children:
+      npcplugin.use: true
+  npcplugin.kit:
+    description: Use /kitall and manage built-in kits (/npcwars kit ...).
+    default: false
+    children:
+      npcplugin.use: true
+  npcplugin.massaction:
+    description: Use /massaction.
+    default: false
+  npcplugin.reload:
+    description: Reload the configuration (/npcwars reload, /npcwars save).
+    default: false
+    children:
+      npcplugin.use: true
+  npcplugin.notify:
+    description: Receive fight countdown and result announcements when fight.announce is STAFF.
+    default: false
+  npcplugin.debug:
+    description: Use /npcwars debug.
+    default: false
+    children:
+      npcplugin.use: true
+  npcplugin.deps:
+    description: Download the optional plugins Citizens and EssentialsX (/npcwars deps).
+    default: false
+    children:
+      npcplugin.use: true
+  npcplugin.import:
+    description: Import NPCs from Citizens (/npcwars import citizens).
+    default: false
+    children:
+      npcplugin.use: true
+  npcplugin.route:
+    description: Build routes and send NPCs along them (/npcwars path).
+    default: false
+    children:
+      npcplugin.use: true
+  npcplugin.stick:
+    description: Use the dupe stick (/npcwars stick) that turns players into NPCs.
+    default: false
+    children:
+      npcplugin.use: true

@@ -1,0 +1,137 @@
+# Built-in kits (the fallback kit system used when no other kit plugin is installed).
+#
+# Each entry in "items" is either
+#   - a text line:   MATERIAL [amount] [enchantment:level ...]      e.g. DIAMOND_SWORD sharpness:3 unbreaking:2
+#   - or "base64:<data>", written by "/npcwars kit create <name>" (keeps names, lore, trims, ...).
+#
+# A kit fills a whole player inventory: armor goes to the armor slots, a shield to the off hand, the strongest melee
+# weapon to hotbar slot 0, and everything else (food, pearls, wind charges, arrows, potions, blocks...) to the other
+# hotbar and storage slots, with the amounts you give. Fighting NPCs use what they carry (see combat: in config.yml).
+# Potions take potion:<type> (healing, strong_healing, harming, strength, swiftness, ...). Create, list and delete kits in game with /npcwars kit create|list|delete,
+# or edit this file and run /npcwars reload.
+kits:
+  leather:
+    icon: LEATHER_CHESTPLATE
+    items:
+      - LEATHER_HELMET
+      - LEATHER_CHESTPLATE
+      - LEATHER_LEGGINGS
+      - LEATHER_BOOTS
+      - WOODEN_SWORD
+  chainmail:
+    icon: CHAINMAIL_CHESTPLATE
+    items:
+      - CHAINMAIL_HELMET
+      - CHAINMAIL_CHESTPLATE
+      - CHAINMAIL_LEGGINGS
+      - CHAINMAIL_BOOTS
+      - STONE_SWORD
+  iron:
+    icon: IRON_CHESTPLATE
+    items:
+      - IRON_HELMET
+      - IRON_CHESTPLATE
+      - IRON_LEGGINGS
+      - IRON_BOOTS
+      - IRON_SWORD
+      - SHIELD
+  diamond:
+    icon: DIAMOND_CHESTPLATE
+    items:
+      - DIAMOND_HELMET protection:2
+      - DIAMOND_CHESTPLATE protection:2
+      - DIAMOND_LEGGINGS protection:2
+      - DIAMOND_BOOTS protection:2
+      - DIAMOND_SWORD sharpness:2
+      - SHIELD
+  netherite:
+    icon: NETHERITE_CHESTPLATE
+    items:
+      - NETHERITE_HELMET protection:3
+      - NETHERITE_CHESTPLATE protection:3
+      - NETHERITE_LEGGINGS protection:3
+      - NETHERITE_BOOTS protection:3
+      - NETHERITE_SWORD sharpness:3 knockback:1
+      - SHIELD
+  axeman:
+    icon: IRON_AXE
+    items:
+      - IRON_HELMET
+      - IRON_CHESTPLATE
+      - IRON_LEGGINGS
+      - IRON_BOOTS
+      - DIAMOND_AXE sharpness:2
+  macer:
+    icon: MACE
+    items:
+      - NETHERITE_HELMET protection:4 unbreaking:3
+      - NETHERITE_CHESTPLATE protection:4 unbreaking:3
+      - NETHERITE_LEGGINGS protection:4 unbreaking:3
+      - NETHERITE_BOOTS protection:4 feather_falling:4 unbreaking:3
+      - MACE density:3 breach:2
+      - NETHERITE_AXE sharpness:3
+      - SHIELD
+      - WIND_CHARGE 32
+      - GOLDEN_APPLE 8
+      - TOTEM_OF_UNDYING
+      - ENDER_PEARL 8
+      - COBWEB 4
+      - WATER_BUCKET
+  archer:
+    icon: BOW
+    items:
+      - IRON_HELMET
+      - IRON_CHESTPLATE
+      - IRON_LEGGINGS
+      - IRON_BOOTS
+      - BOW power:3 punch:1
+      - ARROW 64
+      - IRON_SWORD
+      - SHIELD
+      - GOLDEN_APPLE 4
+  crossbow:
+    icon: CROSSBOW
+    items:
+      - DIAMOND_HELMET
+      - DIAMOND_CHESTPLATE
+      - DIAMOND_LEGGINGS
+      - DIAMOND_BOOTS
+      - CROSSBOW quick_charge:3
+      - ARROW 64
+      - DIAMOND_SWORD
+  trident:
+    icon: TRIDENT
+    items:
+      - DIAMOND_HELMET
+      - DIAMOND_CHESTPLATE
+      - DIAMOND_LEGGINGS
+      - DIAMOND_BOOTS
+      - TRIDENT loyalty:3
+      - DIAMOND_SWORD
+      - SHIELD
+  alchemist:
+    icon: SPLASH_POTION
+    items:
+      - IRON_HELMET
+      - IRON_CHESTPLATE
+      - IRON_LEGGINGS
+      - IRON_BOOTS
+      - IRON_SWORD
+      - POTION potion:strength
+      - POTION potion:swiftness
+      - POTION potion:strong_healing 3
+      - SPLASH_POTION potion:harming 4
+      - SPLASH_POTION potion:strong_healing 2
+  bomber:
+    icon: TNT
+    items:
+      - NETHERITE_HELMET protection:3
+      - NETHERITE_CHESTPLATE protection:3
+      - NETHERITE_LEGGINGS protection:3
+      - NETHERITE_BOOTS protection:3
+      - NETHERITE_SWORD sharpness:3
+      - SHIELD
+      - TNT 8
+      - END_CRYSTAL 4
+      - FIRE_CHARGE 8
+      - GOLDEN_APPLE 4
