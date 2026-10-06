@@ -45,6 +45,7 @@ permissions:
       npcplugin.deps: true
       npcplugin.import: true
       npcplugin.route: true
+      npcplugin.stick: true
   npcplugin.use:
     description: Use the /npcwars command (help and read-only subcommands such as list and info).
     default: false
@@ -101,6 +102,11 @@ permissions:
       npcplugin.use: true
   npcplugin.route:
     description: Build routes and send NPCs along them (/npcwars path).
+    default: false
+    children:
+      npcplugin.use: true
+  npcplugin.stick:
+    description: Use the dupe stick (/npcwars stick) that turns players into NPCs.
     default: false
     children:
       npcplugin.use: true

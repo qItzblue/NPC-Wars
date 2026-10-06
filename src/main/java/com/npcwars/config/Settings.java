@@ -114,6 +114,13 @@ public final class Settings {
     public double eatBelowHealth;
     public double aimErrorDegrees;
 
+    // dupe stick
+    public int stickMaxPerUse;
+    public int stickFillSpacing;
+    public double stickRange;
+    public boolean stickCopyNames;
+    public boolean stickCopyTeam;
+
     // life
     public boolean lifeEnabled;
     public boolean lifeDefault;
@@ -225,6 +232,12 @@ public final class Settings {
         pearlDamage = clamp(c.getDouble("combat.pearl-damage", 5.0), 0.0, 40.0);
         eatBelowHealth = clamp(c.getDouble("combat.eat-below-health", 12.0), 1.0, 40.0);
         aimErrorDegrees = clamp(c.getDouble("combat.aim-error-degrees", 1.5), 0.0, 20.0);
+
+        stickMaxPerUse = Math.max(1, Math.min(500, c.getInt("stick.max-per-use", 100)));
+        stickFillSpacing = Math.max(1, Math.min(20, c.getInt("stick.fill-spacing", 3)));
+        stickRange = clamp(c.getDouble("stick.range", 40.0), 5.0, 200.0);
+        stickCopyNames = c.getBoolean("stick.copy-names", true);
+        stickCopyTeam = c.getBoolean("stick.copy-team", true);
 
         lifeEnabled = c.getBoolean("life.enabled", true);
         lifeDefault = c.getBoolean("life.default-for-new-npcs", false);

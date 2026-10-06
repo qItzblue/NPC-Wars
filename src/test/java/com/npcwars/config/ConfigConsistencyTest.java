@@ -36,7 +36,7 @@ import org.junit.jupiter.api.Test;
 class ConfigConsistencyTest {
 
     private static final Pattern KEY = Pattern.compile(
-            "\"((?:general|npc|team|fight|kits|massaction|action|help|status|gui|deps|import|appearance|life|route|ai|debug)\\.[a-z0-9.\\-]+)\"");
+            "\"((?:general|npc|team|fight|kits|massaction|action|help|status|gui|deps|import|appearance|life|route|ai|debug|stick)\\.[a-z0-9.\\-]+)\"");
     private static final Set<String> MINIMESSAGE_TAGS = Set.of("prefix", "newline", "reset", "bold", "red", "green",
             "yellow", "gold", "gray", "white", "dark_gray");
 
@@ -83,6 +83,20 @@ class ConfigConsistencyTest {
             }
         }
         assertTrue(missing.isEmpty(), "message keys used in code but missing from config.yml: " + missing);
+    }
+
+    @Test
+    void yamlFilesHaveNoDuplicateKeys() throws IOException {
+        // Bukkit's loader silently lets the last duplicate win, which hides a message or setting; SnakeYAML can refuse them.
+        for (String file : List.of("config.yml", "kits.yml", "pools.yml")) {
+            org.yaml.snakeyaml.LoaderOptions options = new org.yaml.snakeyaml.LoaderOptions();
+            options.setAllowDuplicateKeys(false);
+            try (java.io.Reader reader = Files.newBufferedReader(Path.of("src/main/resources/" + file), StandardCharsets.UTF_8)) {
+                new org.yaml.snakeyaml.Yaml(options).load(reader);
+            } catch (org.yaml.snakeyaml.error.YAMLException ex) {
+                throw new AssertionError(file + " has a duplicate key: " + ex.getMessage(), ex);
+            }
+        }
     }
 
     @Test

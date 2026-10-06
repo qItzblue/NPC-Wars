@@ -43,7 +43,8 @@ final class NpcManagementCommands {
                 .register(equip())
                 .register(heal())
                 .register(give())
-                .register(move());
+                .register(move())
+                .register(cloneNpc());
     }
 
     // ---------------------------------------------------------------- spawning
@@ -318,6 +319,31 @@ final class NpcManagementCommands {
             targets.forEach(npc -> ctx.plugin().npcs().heal(npc));
             ctx.send("npc.healed-many", Messages.var("count", targets.size()));
         }).minArgs(1).complete(ctx -> Completions.filter(Targets.npcSuggestions(ctx), ctx.last()));
+    }
+
+    private static SubCommand cloneNpc() {
+        return SubCommand.of("clone", "npcplugin.npc", "clone <id> [count]",
+                "Duplicate an NPC (name, skin, whole inventory, team) around it", ctx -> {
+                    Npc source = Targets.single(ctx, ctx.arg(0));
+                    int count = ctx.size() > 1 ? parseInt(ctx.arg(1), 1, 100, "npc.invalid-count", Messages.var("max", 100)) : 1;
+                    Location origin = source.currentLocation();
+                    if (origin == null) {
+                        throw new CommandException("npc.not-spawned", Messages.var("id", source.id()));
+                    }
+                    int made = 0;
+                    for (int i = 0; i < count; i++) {
+                        double angle = i * GOLDEN_ANGLE;
+                        double distance = 1.5 + Math.sqrt(i) * 1.2;
+                        Location at = origin.clone().add(Math.cos(angle) * distance, 0, Math.sin(angle) * distance);
+                        try {
+                            ctx.plugin().npcs().duplicate(source, at);
+                            made++;
+                        } catch (IllegalStateException ex) {
+                            throw new CommandException("npc.limit-reached", Messages.var("max", ctx.plugin().settings().maxNpcs));
+                        }
+                    }
+                    ctx.send("npc.cloned", Messages.var("count", made), Messages.var("id", source.id()));
+                }).minArgs(1).complete(ctx -> ctx.size() == 1 ? Completions.filter(ctx.plugin().npcs().idStrings(), ctx.last()) : List.of());
     }
 
     private static SubCommand move() {

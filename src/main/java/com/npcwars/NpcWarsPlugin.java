@@ -66,6 +66,7 @@ public final class NpcWarsPlugin extends JavaPlugin {
     private FightManager fights;
     private Pools pools;
     private LifeAi life;
+    private com.npcwars.stick.StickManager stick;
     private final PlacedBlocks placed = new PlacedBlocks();
     private final java.util.Set<java.util.UUID> explosives = new java.util.HashSet<>();
     private RouteManager routes;
@@ -99,6 +100,7 @@ public final class NpcWarsPlugin extends JavaPlugin {
         kitApplier = new KitApplier(this);
         fights = new FightManager(this);
         life = new LifeAi(this);
+        stick = new com.npcwars.stick.StickManager(this);
         routes = new RouteManager();
         routeRunner = new RouteRunner(this);
 
@@ -226,13 +228,17 @@ public final class NpcWarsPlugin extends JavaPlugin {
         return explosives;
     }
 
+    public com.npcwars.stick.StickManager stick() {
+        return stick;
+    }
+
     public LifeAi life() {
         return life;
     }
 
     /** @return {@code true} if a fight, a mass action or a route currently controls this NPC (life AI stays out) */
     public boolean isNpcBusy(Npc npc) {
-        return fights.hasFighter(npc) || runner.isRunning(npc) || routeRunner.isOnRoute(npc);
+        return fights.hasFighter(npc) || runner.isRunning(npc) || routeRunner.isOnRoute(npc) || stick.isWalking(npc);
     }
 
     public Pools pools() {
@@ -355,6 +361,7 @@ public final class NpcWarsPlugin extends JavaPlugin {
         manager.registerEvents(new NpcDamageListener(this), this);
         manager.registerEvents(new NpcLifecycleListener(this), this);
         manager.registerEvents(new GuiListener(), this);
+        manager.registerEvents(new com.npcwars.listener.StickListener(this), this);
         manager.registerEvents(new com.npcwars.listener.CombatItemListener(this), this);
     }
 
@@ -383,6 +390,7 @@ public final class NpcWarsPlugin extends JavaPlugin {
         stage("routes", () -> routeRunner.tick(tick));
         stage("fight manager", () -> fights.tick(tick));
         stage("placed blocks", () -> placed.tick(tick));
+        stage("dupe walkers", () -> stick.tick(tick));
         stage("life AI", () -> life.tick(tick));
         stage("NPC movement", () -> npcs.tickControllers(tick));
         stage("NPC maintenance", () -> npcs.maintenance(tick));

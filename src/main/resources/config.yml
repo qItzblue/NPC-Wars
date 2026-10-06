@@ -133,6 +133,14 @@ combat:
   eat-below-health: 12.0
   aim-error-degrees: 1.5
 
+# The dupe stick (/npcwars stick) turns players into NPCs with their skin, name and whole inventory.
+stick:
+  max-per-use: 100       # most NPCs one use of "fill the area" makes
+  fill-spacing: 3        # blocks between the copies when filling an area
+  range: 40              # how far the "place one copy" mode reaches
+  copy-names: true       # copies keep the player's name (false = random names from pools.yml)
+  copy-team: true        # copies join the team the player is in
+
 # "Life" mode makes NPCs behave like players on an SMP while nothing else controls them (no fight, mass action or path):
 # they wander near their home, look at nearby players, fidget (jump, sneak, swing) and, with the ai: section on, chat.
 # Turn it on per NPC with /npcwars life <targets> on, or for every new NPC with default-for-new-npcs.
@@ -208,6 +216,7 @@ messages:
     player-offline: '<prefix><red>Player <white><player><red> is not online.'
 
   npc:
+    cloned: '<prefix><green>Made <white><count><green> copy/copies of NPC <white>#<id><green>.'
     moved: '<prefix><green>Moved <white><count><green> NPC(s).'
     gave: '<prefix><green>Gave the item to <white><count><green> NPC(s) (<full> had no room).'
     cleared: '<prefix><green>Emptied the inventory of <white><count><green> NPC(s).'
@@ -292,6 +301,19 @@ messages:
     invalid-ids: '<prefix><red>"<input>" is not a list of Citizens NPC ids (examples: 3, 1,2,7, 5-9, all).'
     nothing: '<prefix><red>No Citizens player NPCs were imported (<skipped> skipped: not player NPCs, unplaced or already imported).'
     done: '<prefix><green>Imported <white><count><green> NPC(s) from Citizens (<skipped> skipped).'
+    limit: '<prefix><red>Stopped at the limit of <white><max><red> NPCs (npc.max-npcs).'
+
+  stick:
+    given: '<prefix><green>Dupe stick given. Left-click a block for corner 1, right-click a block for corner 2, right-click in the air to use it.'
+    cleared: '<prefix><green>Area cleared.'
+    used: '<prefix><green>Made <white><count><green> NPC(s).'
+    hold-it: '<prefix><red>Hold the dupe stick in your main hand first.'
+    invalid-mode: '<prefix><red>"<input>" is not a mode. Use copy, fill or single.'
+    invalid-behavior: '<prefix><red>"<input>" is not a behavior. Use stand or walk.'
+    no-area: '<prefix><red>Select an area first: left-click a block (corner 1) and right-click a block (corner 2).'
+    nobody: '<prefix><red>No player is standing in the selected area.'
+    no-ground: '<prefix><red>There is no solid ground to stand on inside the selected area.'
+    outside: '<prefix><red>That spot is outside the selected area.'
     limit: '<prefix><red>Stopped at the limit of <white><max><red> NPCs (npc.max-npcs).'
 
   debug:

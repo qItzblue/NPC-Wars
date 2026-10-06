@@ -190,6 +190,7 @@ public final class FightManager {
         long tick = plugin.currentTick();
         plugin.runner().stopAll();
         plugin.routeRunner().cancelAll();
+        plugin.stick().cancelWalks();
         for (Npc npc : plugin.npcs().all()) {
             npc.setSuppressed(false);
             npc.setRespawnAtTick(0);

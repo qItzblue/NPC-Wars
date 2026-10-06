@@ -70,4 +70,15 @@ class LoadoutTest {
         assertTrue(ItemRoles.isGoldenApple(Material.ENCHANTED_GOLDEN_APPLE));
         assertTrue(ItemRoles.isTotem(Material.TOTEM_OF_UNDYING));
     }
+
+    @Test
+    void equipmentSlotsMapToPlayerInventoryIndexes() {
+        assertEquals(39, com.npcwars.npc.NpcSlot.HEAD.inventoryIndex());
+        assertEquals(38, com.npcwars.npc.NpcSlot.CHEST.inventoryIndex());
+        assertEquals(37, com.npcwars.npc.NpcSlot.LEGS.inventoryIndex());
+        assertEquals(36, com.npcwars.npc.NpcSlot.FEET.inventoryIndex());
+        assertEquals(40, com.npcwars.npc.NpcSlot.OFF_HAND.inventoryIndex());
+        assertEquals(0, com.npcwars.npc.NpcSlot.MAIN_HAND.inventoryIndex());
+        assertEquals(41, com.npcwars.npc.Npc.INVENTORY_SIZE);
+    }
 }

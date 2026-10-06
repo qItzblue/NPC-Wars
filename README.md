@@ -1,10 +1,17 @@
 # NPC-Wars
 
-A Paper plugin for staging NPC battles: equippable player-like NPCs, a combined kit menu (EssentialsX, CMI and a
-built-in fallback), `/massaction`, numbered teams and team-versus-team fights with real combat AI.
+A Paper plugin for staging NPC battles and running an SMP full of NPCs: real player NPCs (bodies made by Citizens), kits
+(EssentialsX, CMI and a built-in fallback), `/massaction`, numbered teams, waypoint routes, a dupe stick that turns players
+into NPCs, and fights where the NPCs really use their items (wind charge + mace slams, shields, pearls, bows, ...).
 
-- **Server:** Paper **1.21.9 or newer** (built against 1.21.11), Java 21
-- **Soft dependencies:** EssentialsX, CMI (both optional; missing plugins never cause errors)
+- **Server:** Paper **1.21.11**, Java 21
+- **Needs Citizens 2.0.43 build 4250.** NPC-Wars downloads exactly that build into `plugins/` on first start if it is
+  missing (then restart once). Citizens' newest build refuses to run on 1.21.11, so a newer one is never fetched.
+- **Soft dependencies:** EssentialsX, CMI (optional)
+- **The command is `/npcwars`** (alias `/nw`). `/npc` belongs to Citizens.
+- **Quiet by default:** the plugin prints nothing to chat (no "NPC spawned", no "team 2 wins", no countdowns) until you
+  turn it on with `/npcwars debug on`. Errors, usage hints and answers to list/info/status always show. With debug on, the
+  console also traces every decision of the combat AI (which tactic, what it hit, why it died).
 
 ## Build
 
@@ -12,19 +19,17 @@ built-in fallback), `/massaction`, numbered teams and team-versus-team fights wi
 mvn clean package          # compiles, runs the unit tests, writes target/NPC-Wars-1.0.0.jar
 ```
 
-Drop the jar into `plugins/` and start the server. To build against another Paper version:
-`mvn clean package -Dpaper.version=1.21.10-R0.1-SNAPSHOT` (the Mannequin entity needs 1.21.9+).
+Drop the jar into `plugins/` and start the server.
 
-## Design choice: NPCs are Paper `Mannequin` entities
+## How the NPCs work
 
-A Mannequin is a real server-side entity with a player model, skin and equipment slots, and no AI, sounds or despawn
-rules. That gives player-looking NPCs without NMS or per-viewer packets (version-proof, light on the server).
-Because it has no AI, the plugin supplies movement itself: each tick it sets velocity, jump flag, pose and rotation
-(gravity, collisions, step-ups and water stay vanilla) and plans routes with its own A* pathfinder when the straight
-line is blocked.
-
-Bodies are spawned non-persistent; `data.yml` is the single source of truth and bodies are re-created on startup,
-world load and chunk load, so there are never orphaned or duplicated NPCs.
+Each NPC is a real player entity created through the Citizens API (in its temporary registry, so Citizens saves nothing
+itself). That gives a proper player model with skin, name tag, held items, armor, shield and swing animations. NPC-Wars
+keeps everything else: `data.yml` is the single source of truth (id, name, skin, home, 41-slot inventory, team,
+behavior), and bodies are re-created on startup, world load and chunk load. Movement is driven by the plugin (velocity,
+jumps, rotation, its own A* pathfinder); damage rules, fights and items are the plugin's too, because a Citizens body
+lacks a few things a real player gets from the game (fall distance, ender pearl teleport, shield blocking), which the
+plugin fills in.
 
 ## Commands
 
@@ -56,8 +61,11 @@ world load and chunk load, so there are never orphaned or duplicated NPCs.
 | `/npcwars path run <name> [targets] [speed=walk\|run] [spread=<n>] [fight=now\|<time>]` | `npcplugin.route` | Send NPCs along a route; optionally start the fight when the last one arrives |
 | `/npcwars path stop [name]` | `npcplugin.route` | Stop NPCs walking routes |
 | `/npcwars say <id> <text>` | `npcplugin.npc` | Make an NPC say something in chat |
+| `/npcwars give <targets> <ITEM [amount] [enchant:level]>`, `give <targets> clear` | `npcplugin.npc` | Put items in NPC inventories |
+| `/npcwars move <targets> <x> <y> <z> [world]`, `/npcwars clone <id> [count]` | `npcplugin.npc` | Teleport NPCs (works from the console); duplicate an NPC with its inventory |
+| `/npcwars stick [mode copy\|fill\|single] [then stand\|walk]` | `npcplugin.stick` | The dupe stick (see below) |
+| `/npcwars debug [on\|off\|<id>]` | `npcplugin.debug` | Plugin messages on/off, or one NPC's state |
 | `/npcwars reload`, `/npcwars save` | `npcplugin.reload` | Reload config / write data now |
-| `/npcwars debug <id>` | `npcplugin.debug` | Movement and combat state of one NPC |
 
 `<targets>` accepts an id (`5`), a list (`1,2,7`), a range (`3-9`), `all`, `selected`, `look` (the NPC you look at) or
 `team:<n>`. `npcplugin.admin` (default: op) grants everything. Every command has tab completion and error messages.
@@ -136,6 +144,43 @@ plugin, implement `KitProvider` and call `plugin.kits().register(...)`.
   (`fight.hesitate-*`), the arm swings on every attempt, and an empty-handed NPC picks up `fight.default-weapon` when a
   fight starts so it visibly holds something.
 
+## Fighting with items
+
+Fighting NPCs use what they carry, like a player would. Give items with a kit, the dupe stick, `/npcwars give`, or the
+equipment GUI. Each behavior below only happens if the NPC has the item, and each can be switched off under `combat:` in
+config.yml.
+
+| Item | What the NPC does |
+|---|---|
+| Mace + wind charges | Throws a wind charge at its feet to launch itself, steers over the enemy, switches to the mace and smashes down. Damage grows with the height fallen (real mace formula, Density counts); no fall damage after the smash |
+| Axe vs. a raised shield | Knocks the shield out for 5 seconds; the mace slam is preferred while the enemy is stunned |
+| Shield | Raises it between swings; blocks hits from the front, axes disable it |
+| Ender pearls | Throws one to cross a gap to a far enemy, or to escape when nearly dead (pearl damage applies) |
+| Golden apples, food, potions | Eats or drinks when hurt (backing away), drinks strength/speed/resistance before a fight |
+| Totem of undying | Moves it into a hand when low, and it pops as in the game |
+| Bow, crossbow, trident | Draws, aims with a lead and gravity compensation, shoots (Power, Quick Charge, Infinity, Loyalty are respected) |
+| Splash potions, fire charges, snowballs, eggs | Throws harming potions at the enemy, healing ones at its own feet; fire charges set the target alight but not the world |
+| Cobweb | Traps the enemy's feet (removed after `placed-block-seconds`) |
+| Water bucket | Places water below itself on a long fall |
+| TNT, end crystals | Lights TNT or pops a crystal at the enemy's feet, then runs; explosions hurt entities but only break blocks if `explosions-break-blocks` is on |
+| Lava bucket | Off by default (`lava: true` to allow); temporary like the cobweb |
+
+Not done: elytra flying, riding, and building structures. Swings are not perfect: `fight.hit-chance`,
+`fight.hesitate-*` and `fight.attack-jitter-ticks` make NPCs miss now and then and pause between swings. NPCs also take
+fall damage and sometimes hop to land a critical hit.
+
+## The dupe stick
+
+`/npcwars stick` gives you a stick that turns players into NPCs with their skin, name, team and **whole inventory** (the
+item they hold ends up in the NPC's hand). Its name and lore show its state, so it needs no chat.
+
+- **Left-click a block** = corner 1, **right-click a block** = corner 2 (the area is outlined with particles).
+- **Right-click in the air** = use it. **Sneak + left-click** = change mode. **Sneak + right-click** = what the copies do.
+- **Modes:** *Copy players in the area* (every real player standing in it becomes an NPC, in place and facing the same
+  way) · *Fill the area with copies of you* (a grid, `stick.fill-spacing` apart, all facing the way you face) · *Place
+  one copy of you* (where you point, inside the area if one is set).
+- **Then:** *Stand still* or *Walk forward* (they stop when a fight starts).
+
 ## Performance notes (100+ NPCs)
 
 One tick loop drives everything on the main thread. Idle NPCs on dry land cost nothing per tick. Target searches use a
@@ -145,18 +190,22 @@ the main thread, so the Bukkit API is never touched off-thread.
 
 ## Limitations (please read)
 
-The pure logic (pathfinder, teams, damage math, pacing, life planner, routes, downloader, config
-consistency) has automated tests. Spawning, life mode, routes with an automatic fight, fights between teams, the
-auto-download and the AI chat call (against a local fake API) were also run on a real Paper 1.21.11 server, driven from
-the console. Not verified, because it needs a client or real accounts: how everything *looks* (held items, hand swings,
-skins), the GUIs, and combat balance with real players.
-Everything that affects feel is configurable (`movement.*`, `fight.*`, `life.*`, `pathfinding.*`), and `/npcwars debug <id>`
-prints an NPC's movement/combat state to help tune it. NPCs only act while their chunks are loaded (a player nearby, or a
-force-loaded chunk).
+Verified on a real Paper 1.21.11 server with Citizens 2.0.43 build 4250, driven from the console (no client): spawning and
+persistence, life mode, routes that end in a fight, team fights, the mace + wind charge slam, shield blocking and axe
+stuns, pearls, eating and totems, bows/crossbows/tridents, splash potions, fire charges, cobwebs, TNT, end crystals, the
+water clutch, the dupe stick's fill/single modes and walking (called through the plugin API, as there was no player to
+click), `clone`, `give`, `move`, and the quiet-by-default messages. Plus unit tests for the pure logic.
+
+**Not verified, because it needs a client or real accounts:** how everything *looks* (held items, the swing animation,
+skins, name tags), real clicks with the dupe stick and its "copy players" mode, the GUIs, hits between NPCs and real
+players, and combat balance. Everything that affects feel is configurable (`movement.*`, `fight.*`, `combat.*`,
+`life.*`), and `/npcwars debug on` plus `/npcwars debug <id>` show what an NPC is thinking. NPCs only act while their
+chunks are loaded (a player nearby, or a force-loaded chunk).
 
 - The CMI hook is reflection-based and unverified against a real CMI jar.
-- `/npcwars` is also Citizens' command name; if both are installed use the alias `/npcwars` (or `/npc-wars:npc`).
-- Mannequins cannot climb ladders or open doors; closed doors and fences count as walls for pathfinding.
+- Citizens owns `/npc`; NPC-Wars is `/npcwars` (alias `/nw`).
+- EssentialsX creates a user record for each NPC body (its own behavior for player-type entities).
+- NPCs cannot climb ladders or open doors; closed doors and fences count as walls for pathfinding.
 - Players using Creative mode can have inventory-GUI quirks; use Survival to equip NPCs by hand or use kits.
 
 ## Project layout
@@ -169,13 +218,15 @@ src/main/java/com/npcwars/
   path/                    Terrain, PathFinder (A*), PathService (time-budgeted), BukkitTerrain
   team/                    Team, TeamManager (pure Java), TeamStorage
   appearance/              Pools (pools.yml), NamePicker
+  stick/                   StickManager (dupe stick), Area, modes and behaviors
   life/                    LifeAi (peaceful SMP behaviour), LifePlanner
   route/                   Route, RouteManager, RouteStorage, RouteRunner
   dependency/              DependencyInstaller, Citizens / EssentialsX download sources, checked downloader
   integration/             CitizensImporter (the only class that uses the Citizens API)
   kit/                     KitProvider, KitRegistry, Built-in / Essentials / CMI providers, ItemParser, KitApplier
   action/                  NpcAction, ActionRegistry, ActionRunner;  action/builtin/ (attack, move, walk, ...)
-  combat/                  FightManager, TargetSelector, SpatialGrid, AttackExecutor, DamageCalculator, Factions
+  combat/                  FightManager, TargetSelector, SpatialGrid, AttackExecutor, DamageCalculator, Ballistics, Loadout
+  combat/brain/            CombatBrain and the tactics (WindMace, UseItem, Ranged, Pearl, Throw, Place, Explosive, ...)
   gui/                     EquipmentGui, KitMenu, GuiListener
   command/                 /npcwars (sub-command router), /kitall, /massaction
   listener/                interaction, damage rules, lifecycle (death, chunk and world load)

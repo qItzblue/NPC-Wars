@@ -97,6 +97,24 @@ public final class NpcManager {
         return npc;
     }
 
+    /**
+     * Makes a copy of an NPC at a location: same name, skin, whole inventory, team and behavior.
+     *
+     * @throws IllegalStateException if {@code npc.max-npcs} is reached
+     */
+    public Npc duplicate(Npc source, Location at) {
+        Npc copy = create(at, source.label(), source.skin());
+        copy.setInventory(source.inventorySnapshot());
+        copy.setBehavior(source.behavior());
+        int team = plugin.teams().teamOfNpc(source.id());
+        if (team > 0) {
+            plugin.teams().addNpc(team, copy.id());
+        }
+        applyInventory(copy);
+        plugin.data().requestSave();
+        return copy;
+    }
+
     /** Permanently deletes an NPC: body, record, team membership and selections. */
     public void remove(Npc npc) {
         plugin.fights().onNpcRemoved(npc);
@@ -105,6 +123,7 @@ public final class NpcManager {
         plugin.teams().removeNpc(npc.id());
         selection.forget(npc.id());
         plugin.routeRunner().release(npc);
+        plugin.stick().stopWalking(npc);
         plugin.life().release(npc);
         plugin.data().requestSave();
     }
