@@ -36,7 +36,7 @@ import org.junit.jupiter.api.Test;
 class ConfigConsistencyTest {
 
     private static final Pattern KEY = Pattern.compile(
-            "\"((?:general|npc|team|fight|kits|massaction|action|help|status|gui|deps|import|appearance|life|route|ai)\\.[a-z0-9.\\-]+)\"");
+            "\"((?:general|npc|team|fight|kits|massaction|action|help|status|gui|deps|import|appearance|life|route|ai|debug)\\.[a-z0-9.\\-]+)\"");
     private static final Set<String> MINIMESSAGE_TAGS = Set.of("prefix", "newline", "reset", "bold", "red", "green",
             "yellow", "gold", "gray", "white", "dark_gray");
 
@@ -83,6 +83,16 @@ class ConfigConsistencyTest {
             }
         }
         assertTrue(missing.isEmpty(), "message keys used in code but missing from config.yml: " + missing);
+    }
+
+    @Test
+    void messageKeysAreNotYamlBooleans() {
+        // "on"/"off"/"yes"/"no" as a key are read as true/false by YAML 1.1, so such a message could never be found.
+        for (String key : MESSAGES.keySet()) {
+            for (String part : key.split("\\.")) {
+                assertFalse(Set.of("true", "false").contains(part), "message key " + key + " has a boolean-looking part");
+            }
+        }
     }
 
     @Test
@@ -155,7 +165,7 @@ class ConfigConsistencyTest {
             plugin = new org.yaml.snakeyaml.Yaml().load(reader);
         }
         Map<String, Object> commands = (Map<String, Object>) plugin.get("commands");
-        for (String command : List.of("npc", "kitall", "massaction")) {
+        for (String command : List.of("npcwars", "kitall", "massaction")) {
             assertTrue(commands.containsKey(command), "plugin.yml lacks command " + command);
         }
         Set<String> declared = ((Map<String, Object>) plugin.get("permissions")).keySet();

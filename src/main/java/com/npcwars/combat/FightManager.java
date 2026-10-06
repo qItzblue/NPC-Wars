@@ -1,6 +1,7 @@
 package com.npcwars.combat;
 
 import com.npcwars.NpcWarsPlugin;
+import com.npcwars.combat.brain.CombatBrain;
 import com.npcwars.config.Messages;
 import com.npcwars.config.Settings;
 import com.npcwars.npc.Npc;
@@ -13,12 +14,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.bukkit.Bukkit;
-import org.bukkit.Location;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
-import org.bukkit.entity.Mannequin;
 import org.bukkit.entity.Player;
-import org.bukkit.util.BoundingBox;
 
 /**
  * The fight state machine (idle, countdown, running) and the combat AI that drives every NPC while it runs.
@@ -65,6 +63,12 @@ public final class FightManager {
     /** @return {@code true} if this NPC is currently taking part in the running fight */
     public boolean hasFighter(Npc npc) {
         return fighters.containsKey(npc.id());
+    }
+
+    /** @return the fighting brain of this NPC while a fight runs, otherwise {@code null} */
+    public CombatBrain brainOf(Npc npc) {
+        Fighter fighter = fighters.get(npc.id());
+        return fighter == null ? null : fighter.brain;
     }
 
     public int fighterCount() {
@@ -135,8 +139,15 @@ public final class FightManager {
             end(EndReason.SHUTDOWN, 0);
         }
         state = State.IDLE;
+        shutdownBrains();
         fighters.clear();
         selector.clear();
+    }
+
+    private void shutdownBrains() {
+        for (Fighter fighter : fighters.values()) {
+            fighter.brain.shutdown();
+        }
     }
 
     private StartResult validate() {
@@ -186,7 +197,9 @@ public final class FightManager {
                 plugin.npcs().spawnBody(npc);
             }
             npc.controller().reset();
-            giveDefaultWeapon(npc, settings);
+            if (settings.restoreLoadout) {
+                plugin.npcs().applyInventory(npc);
+            }
             if (settings.healOnStart) {
                 plugin.npcs().heal(npc);
             }
@@ -206,16 +219,10 @@ public final class FightManager {
         return true;
     }
 
-    /** An empty-handed NPC picks up the configured default weapon so it visibly holds something. */
-    private void giveDefaultWeapon(Npc npc, Settings settings) {
-        if (settings.defaultWeapon != null && npc.equipment(com.npcwars.npc.NpcSlot.MAIN_HAND) == null) {
-            plugin.npcs().setEquipment(npc, com.npcwars.npc.NpcSlot.MAIN_HAND, new org.bukkit.inventory.ItemStack(settings.defaultWeapon));
-        }
-    }
-
     private void end(EndReason reason, int winnerSide) {
         Settings settings = plugin.settings();
         state = State.IDLE;
+        shutdownBrains();
         fighters.clear();
         selector.clear();
         for (Npc npc : plugin.npcs().all()) {
@@ -223,6 +230,9 @@ public final class FightManager {
             npc.setSuppressed(false);
             if (settings.healOnEnd && npc.isLive()) {
                 plugin.npcs().heal(npc);
+            }
+            if (settings.restoreLoadout && npc.isLive()) {
+                plugin.npcs().applyInventory(npc);
             }
         }
         if (reason == EndReason.SHUTDOWN) {
@@ -274,7 +284,7 @@ public final class FightManager {
         if (fighter == null || !(damager instanceof LivingEntity attacker) || !attacker.isValid()) {
             return;
         }
-        Mannequin body = npc.entity();
+        Player body = npc.entity();
         if (body == null || plugin.factions().allied(body, attacker) || plugin.factions().of(attacker) == Factions.NONE) {
             return;
         }
@@ -345,7 +355,7 @@ public final class FightManager {
             if (unteamed && settings.unteamedNpcs == Settings.UnteamedMode.IDLE) {
                 continue;
             }
-            fighters.put(npc.id(), new Fighter(npc, tick, settings.retargetIntervalTicks));
+            fighters.put(npc.id(), new Fighter(npc, tick, settings.retargetIntervalTicks, new CombatBrain(plugin, npc, tick)));
         }
     }
 
@@ -365,7 +375,7 @@ public final class FightManager {
 
     private void think(Fighter fighter, long tick) {
         Npc npc = fighter.npc;
-        Mannequin body = npc.entity();
+        Player body = npc.entity();
         if (!npc.isLive() || body == null) {
             return;
         }
@@ -391,52 +401,17 @@ public final class FightManager {
 
         LivingEntity target = fighter.target;
         if (target == null) {
+            fighter.brain.shutdown();
             if (controller.isMoving()) {
                 controller.stop();
             }
             return;
         }
 
-        boolean inReach = reachDistance(body, target) <= settings.attackReach;
-        if (inReach && canSee(fighter, body, target, tick)) {
-            if (controller.isMoving()) {
-                controller.stop();
-            }
-            controller.face(target.getLocation().add(0, target.getHeight() * 0.6, 0));
-            if (tick >= fighter.nextAttackTick) {
-                var pacing = settings.pacing();
-                var random = java.util.concurrent.ThreadLocalRandom.current();
-                boolean done = AttackPacing.connects(random, pacing)
-                        ? plugin.attacks().strike(npc, target)
-                        : plugin.attacks().miss(npc, target);
-                if (done) {
-                    fighter.nextAttackTick = tick + AttackPacing.nextDelay(random, plugin.attacks().cooldownTicks(npc), pacing);
-                }
-            }
-            return;
-        }
-
-        // Out of reach, or "in reach" but behind a wall, fence or glass pane: keep closing in (around the obstacle).
-        double distance = distance(body, target);
-        NpcController.Gait gait = distance > settings.sprintDistance ? NpcController.Gait.SPRINT : NpcController.Gait.WALK;
-        double arrive = inReach ? 0.5 : Math.max(0.8, settings.attackReach - 0.8);
-        controller.moveTo(target.getLocation(), gait, arrive);
+        fighter.brain.tick(tick, target);
     }
 
-    /** Line-of-sight check, cached for a few ticks per fighter because it is a ray cast. */
-    private boolean canSee(Fighter fighter, Mannequin body, LivingEntity target, long tick) {
-        if (!plugin.settings().requireLineOfSight) {
-            return true;
-        }
-        if (fighter.sightTarget != target || tick >= fighter.nextSightCheck) {
-            fighter.sightTarget = target;
-            fighter.hasSight = body.hasLineOfSight(target);
-            fighter.nextSightCheck = tick + 5;
-        }
-        return fighter.hasSight;
-    }
-
-    private boolean isValidTarget(Mannequin body, LivingEntity target, int side) {
+    private boolean isValidTarget(Player body, LivingEntity target, int side) {
         if (!target.isValid() || target.isDead() || target.getWorld() != body.getWorld()) {
             return false;
         }
@@ -444,21 +419,11 @@ public final class FightManager {
         if (targetSide == Factions.NONE || targetSide == side) {
             return false;
         }
-        if (target instanceof Player player && !selector.isEligible(player)) {
+        if (target instanceof Player player && plugin.npcs().byEntity(player) == null && !selector.isEligible(player)) {
             return false;
         }
         double radius = plugin.settings().targetRadius;
         return radius <= 0 || distance(body, target) <= radius * 1.5;
-    }
-
-    /** Distance from the NPC's eyes to the closest point of the target's hitbox, like the vanilla reach check. */
-    private static double reachDistance(Mannequin body, LivingEntity target) {
-        Location eye = body.getEyeLocation();
-        BoundingBox box = target.getBoundingBox();
-        double dx = eye.getX() - clamp(eye.getX(), box.getMinX(), box.getMaxX());
-        double dy = eye.getY() - clamp(eye.getY(), box.getMinY(), box.getMaxY());
-        double dz = eye.getZ() - clamp(eye.getZ(), box.getMinZ(), box.getMaxZ());
-        return Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
 
     private static double distance(Entity a, Entity b) {
@@ -468,13 +433,10 @@ public final class FightManager {
         return Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
 
-    private static double clamp(double value, double min, double max) {
-        return Math.max(min, Math.min(max, value));
-    }
 
     // ---------------------------------------------------------------- diagnostics
 
-    /** @return the sides still in play, as human-readable text for {@code /npc fight status} */
+    /** @return the sides still in play, as human-readable text for {@code /npcwars fight status} */
     public List<String> describeSides() {
         List<String> out = new ArrayList<>();
         for (int side : liveSides(false)) {
@@ -492,6 +454,6 @@ public final class FightManager {
         LivingEntity target = fighter.target;
         String name = target == null ? "none" : target instanceof Player player ? player.getName()
                 : plugin.npcs().byEntity(target) != null ? "npc #" + plugin.npcs().byEntity(target).id() : target.getType().name();
-        return "target=" + name + " nextAttackIn=" + Math.max(0, fighter.nextAttackTick - plugin.currentTick()) + "t";
+        return "target=" + name + " " + fighter.brain.describe(plugin.currentTick());
     }
 }

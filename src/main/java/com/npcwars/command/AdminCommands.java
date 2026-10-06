@@ -7,9 +7,9 @@ import com.npcwars.util.Completions;
 import java.util.List;
 import java.util.Locale;
 import org.bukkit.Location;
-import org.bukkit.entity.Mannequin;
+import org.bukkit.entity.Player;
 
-/** {@code /npc reload}, {@code save}, {@code status} and {@code debug}. */
+/** {@code /npcwars reload}, {@code save}, {@code status} and {@code debug}. */
 final class AdminCommands {
 
     private AdminCommands() {
@@ -56,10 +56,21 @@ final class AdminCommands {
     }
 
     private static SubCommand debug() {
-        return SubCommand.of("debug", "npcplugin.debug", "debug <id|look>",
-                "Print an NPC's movement and combat state (for tuning)", ctx -> {
+        return SubCommand.of("debug", "npcplugin.debug", "debug [on|off|<id|look>]",
+                "Turn plugin messages on or off, or print one NPC's movement and combat state", ctx -> {
+                    if (ctx.size() == 0) {
+                        ctx.plugin().messages().sendAlways(ctx.sender(), ctx.plugin().messages().debug() ? "debug.is-on" : "debug.is-off");
+                        return;
+                    }
+                    String arg = ctx.arg(0).toLowerCase(java.util.Locale.ROOT);
+                    if (arg.equals("on") || arg.equals("off")) {
+                        ctx.plugin().messages().setDebug(arg.equals("on"));
+                        ctx.plugin().data().requestSave();
+                        ctx.plugin().messages().sendAlways(ctx.sender(), arg.equals("on") ? "debug.turned-on" : "debug.turned-off");
+                        return;
+                    }
                     Npc npc = Targets.single(ctx, ctx.arg(0));
-                    Mannequin body = npc.entity();
+                    Player body = npc.entity();
                     String position = "not spawned";
                     String health = "-";
                     if (body != null && body.isValid()) {
@@ -70,6 +81,12 @@ final class AdminCommands {
                     ctx.send("status.debug", Messages.var("id", npc.id()), Messages.var("position", position),
                             Messages.var("health", health), Messages.var("controller", npc.controller().debugSummary()),
                             Messages.var("combat", ctx.plugin().fights().describeFighter(npc)));
-                }).minArgs(1).complete(ctx -> ctx.size() == 1 ? Completions.filter(ctx.plugin().npcs().idStrings(), ctx.last()) : List.of());
+                }).complete(ctx -> {
+            List<String> options = new java.util.ArrayList<>(List.of("on", "off"));
+            if (ctx.size() == 1) {
+                options.addAll(ctx.plugin().npcs().idStrings());
+            }
+            return ctx.size() == 1 ? Completions.filter(options, ctx.last()) : List.of();
+        });
     }
 }

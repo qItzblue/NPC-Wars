@@ -3,11 +3,15 @@ package com.npcwars.combat;
 import com.google.common.collect.Multimap;
 import com.npcwars.NpcWarsPlugin;
 import com.npcwars.config.Settings;
+import com.npcwars.combat.brain.CombatBrain;
+import com.npcwars.combat.brain.Shields;
 import com.npcwars.npc.Npc;
+import com.npcwars.npc.control.NpcController;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import org.bukkit.GameMode;
+import org.bukkit.Sound;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.damage.DamageSource;
@@ -15,7 +19,6 @@ import org.bukkit.damage.DamageType;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
-import org.bukkit.entity.Mannequin;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
@@ -48,46 +51,71 @@ public final class AttackExecutor {
 
     /** @return ticks this NPC must wait between hits, from its main-hand weapon */
     public int cooldownTicks(Npc npc) {
-        Mannequin body = npc.entity();
+        Player body = npc.entity();
         ItemStack weapon = body == null ? null : body.getEquipment().getItemInMainHand();
         return DamageCalculator.cooldownTicks(attackSpeed(weapon), plugin.settings().minAttackCooldownTicks);
     }
 
     /**
-     * Swings and hurts the target once.
+     * Swings and hurts the target once, like a player hit: damage from the held weapon and its enchantments, a critical
+     * hit while falling, the mace smash bonus after a long fall, knockback, and an axe knocking a raised shield out.
+     * Everything goes through the normal damage pipeline, so armor, protection enchants, shields and other plugins'
+     * events all apply.
      *
      * @return {@code false} if the NPC or target is not in a state where a hit makes sense
      */
     public boolean strike(Npc npc, LivingEntity target) {
-        Mannequin body = npc.entity();
+        Player body = npc.entity();
         if (body == null || !body.isValid() || body.isDead() || !target.isValid() || target.isDead()) {
             return false;
         }
         Settings settings = plugin.settings();
         ItemStack weapon = body.getEquipment().getItemInMainHand();
+        NpcController controller = npc.controller();
 
+        double fall = controller.fallDistance();
+        boolean smash = ItemRoles.isMace(weapon.getType()) && controller.isAirborne() && fall > 1.5;
         double damage = weaponDamage(weapon);
         damage += DamageCalculator.sharpnessBonus(weapon.getEnchantmentLevel(Enchantment.SHARPNESS));
-        if (settings.criticalHits && body.getFallDistance() > 0f && !isOnGround(body) && !body.isInWater()) {
+        if (smash) {
+            damage += DamageCalculator.maceBonus(fall)
+                    + DamageCalculator.densityBonus(weapon.getEnchantmentLevel(Enchantment.DENSITY), fall);
+        } else if (settings.criticalHits && controller.isAirborne() && fall > 0.0 && !body.isInWater()) {
             damage = DamageCalculator.critical(damage);
         }
         damage *= settings.damageMultiplier;
 
         body.swingMainHand();
-        npc.controller().face(target.getEyeLocation().add(0, -target.getHeight() * 0.25, 0));
+        controller.face(target.getEyeLocation().add(0, -target.getHeight() * 0.25, 0));
+        if (smash && plugin.messages().debug()) {
+            plugin.getLogger().info(String.format(java.util.Locale.ROOT,
+                    "[combat] NPC #%d mace smash: fell %.1f blocks, damage %.1f", npc.id(), fall, damage));
+        }
 
-        DamageSource source = DamageSource.builder(DamageType.MOB_ATTACK)
+        boolean shielded = ItemRoles.isAxe(weapon.getType()) && Shields.isBlocking(plugin, target);
+        DamageSource source = DamageSource.builder(DamageType.PLAYER_ATTACK)
                 .withCausingEntity(body)
                 .withDirectEntity(body)
                 .withDamageLocation(body.getLocation())
                 .build();
         target.damage(damage, source);
 
+        if (shielded) {
+            Shields.disable(plugin, target, Shields.DISABLED_TICKS);
+            CombatBrain brain = plugin.fights().brainOf(npc);
+            if (brain != null) {
+                brain.markStunned(target, plugin.currentTick() + Shields.DISABLED_TICKS);
+            }
+        }
+        if (smash) {
+            controller.resetFall();
+            slamEffects(body, target, fall);
+        }
         if (!target.isValid() || target.isDead()) {
             return true;
         }
         int knockback = weapon.getEnchantmentLevel(Enchantment.KNOCKBACK);
-        boolean sprinting = npc.controller().isSprinting();
+        boolean sprinting = controller.isSprinting();
         double strength = (knockback + (sprinting ? 1 : 0)) * 0.5;
         if (strength > 0) {
             Vector away = target.getLocation().toVector().subtract(body.getLocation().toVector()).setY(0);
@@ -103,13 +131,28 @@ public final class AttackExecutor {
         return true;
     }
 
+    /** The shockwave of a mace smash: a sound, and everything close (but the NPC's own side) is thrown back. */
+    private void slamEffects(Player body, LivingEntity target, double fall) {
+        body.getWorld().playSound(target.getLocation(),
+                fall > 5 ? Sound.ITEM_MACE_SMASH_GROUND_HEAVY : Sound.ITEM_MACE_SMASH_GROUND, 1.0f, 1.0f);
+        for (Entity entity : target.getNearbyEntities(3.5, 2.0, 3.5)) {
+            if (entity == body || !(entity instanceof LivingEntity living) || plugin.factions().allied(body, living)) {
+                continue;
+            }
+            Vector push = living.getLocation().toVector().subtract(target.getLocation().toVector()).setY(0);
+            if (push.lengthSquared() > 1.0E-6) {
+                living.setVelocity(living.getVelocity().add(push.normalize().multiply(0.7)).add(new Vector(0, 0.35, 0)));
+            }
+        }
+    }
+
     /**
      * A swing that does not connect: the arm swings and the NPC faces the target, but nothing is hurt.
      *
      * @return {@code false} if the NPC is not in a state where swinging makes sense
      */
     public boolean miss(Npc npc, LivingEntity target) {
-        Mannequin body = npc.entity();
+        Player body = npc.entity();
         if (body == null || !body.isValid() || body.isDead() || !target.isValid() || target.isDead()) {
             return false;
         }
@@ -124,7 +167,7 @@ public final class AttackExecutor {
      * @return {@code true} if something was hit
      */
     public boolean hitInFront(Npc npc) {
-        Mannequin body = npc.entity();
+        Player body = npc.entity();
         if (body == null || !body.isValid()) {
             return false;
         }
@@ -190,10 +233,5 @@ public final class AttackExecutor {
             out.add(new DamageCalculator.Modifier(operation, modifier.getAmount()));
         }
         return out;
-    }
-
-    @SuppressWarnings("deprecation")
-    private static boolean isOnGround(Mannequin body) {
-        return body.isOnGround();
     }
 }

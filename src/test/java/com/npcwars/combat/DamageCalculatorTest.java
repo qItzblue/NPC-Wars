@@ -67,4 +67,23 @@ class DamageCalculatorTest {
     void criticalHitsDealOneAndAHalfTimes() {
         assertEquals(15.0, DamageCalculator.critical(10.0), EPS);
     }
+
+    @org.junit.jupiter.api.Test
+    void maceSmashBonusFollowsTheGameFormula() {
+        org.junit.jupiter.api.Assertions.assertEquals(0.0, DamageCalculator.maceBonus(1.5), 1e-9);
+        org.junit.jupiter.api.Assertions.assertEquals(8.0, DamageCalculator.maceBonus(2.0), 1e-9);
+        org.junit.jupiter.api.Assertions.assertEquals(12.0, DamageCalculator.maceBonus(3.0), 1e-9);
+        org.junit.jupiter.api.Assertions.assertEquals(22.0, DamageCalculator.maceBonus(8.0), 1e-9);
+        org.junit.jupiter.api.Assertions.assertEquals(32.0, DamageCalculator.maceBonus(18.0), 1e-9);
+        org.junit.jupiter.api.Assertions.assertEquals(0.0, DamageCalculator.densityBonus(0, 10), 1e-9);
+        org.junit.jupiter.api.Assertions.assertEquals(10.0, DamageCalculator.densityBonus(2, 10), 1e-9);
+    }
+
+    @org.junit.jupiter.api.Test
+    void fallDamageStartsAfterThreeBlocks() {
+        org.junit.jupiter.api.Assertions.assertEquals(0.0, DamageCalculator.fallDamage(3.0), 1e-9);
+        org.junit.jupiter.api.Assertions.assertEquals(1.0, DamageCalculator.fallDamage(3.4), 1e-9);
+        org.junit.jupiter.api.Assertions.assertEquals(7.0, DamageCalculator.fallDamage(10.0), 1e-9);
+        org.junit.jupiter.api.Assertions.assertEquals(0.0, DamageCalculator.fallDamage(0.0), 1e-9);
+    }
 }

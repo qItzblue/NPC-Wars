@@ -1,6 +1,6 @@
 # NPC-Wars configuration.
 # Saved NPCs, their equipment and the teams live in data.yml (managed by the plugin, do not edit while running).
-# Built-in kits live in kits.yml. After editing this file run /npc reload.
+# Built-in kits live in kits.yml. After editing this file run /npcwars reload.
 
 npc:
   # Show the NPC's name above its head. Team names are never shown, whatever this is set to.
@@ -9,7 +9,7 @@ npc:
   invulnerable-when-idle: true
   # Hard limit on saved NPCs.
   max-npcs: 500
-  # Player name whose skin new NPCs wear (blank = the default Mannequin skin). Per NPC: /npc skin <id> <player>.
+  # Player name whose skin new NPCs wear (blank = the default Mannequin skin). Per NPC: /npcwars skin <id> <player>.
   default-skin: ""
   max-health: 20.0
   # An NPC that dies outside of a fight comes back at its home position after this many seconds.
@@ -87,8 +87,8 @@ fight:
   hesitate-min-ticks: 4
   hesitate-max-ticks: 14
   attack-jitter-ticks: 2
-  # An NPC with an empty main hand picks this up when a fight starts, so it visibly holds a weapon (NONE = leave empty).
-  default-weapon: STONE_SWORD
+  # Put each NPC's saved inventory back when a fight starts and ends (food, pearls, charges used up are restored).
+  restore-loadout: true
   require-line-of-sight: true
   # Who sees countdown and result announcements: ALL players, only STAFF (npcplugin.notify), or NONE.
   announce: ALL
@@ -103,9 +103,39 @@ massaction:
   # How long open-ended actions (walk, run, spin, follow, ...) run when no for=<time> is given.
   default-duration: 10s
 
+# What fighting NPCs may do with the items in their inventory, like a player would. Everything needs the item: an NPC
+# only throws a wind charge if it carries one. Give items with a kit, the dupe stick or /npcwars give.
+combat:
+  mace-slam: true        # wind charge at its feet to launch up, then smash down with a mace
+  axe-stun: true         # axe hit on a raised shield disables it for 5 seconds
+  shield: true           # raise a shield between swings
+  pearls: true           # ender pearls to close distance or escape
+  eating: true           # golden apples and food when hurt
+  totems: true           # move a totem of undying into a hand when low
+  potions: true          # drink healing/strength/speed..., or throw harming splash potions
+  ranged: true           # bows, crossbows, tridents
+  throwables: true       # fire charges, snowballs, eggs
+  cobwebs: true          # cobweb on the enemy's feet (removed after placed-block-seconds)
+  water-clutch: true     # water bucket under a long fall
+  tnt: true              # light TNT at the enemy's feet
+  end-crystals: true     # drop an end crystal at the enemy's feet and pop it
+  lava: false            # lava bucket at the enemy's feet (off: it can start fires)
+  # Explosions from NPC TNT and crystals hurt entities, but only break blocks when this is true.
+  explosions-break-blocks: false
+  # NPC bodies take fall damage like players (Citizens does not track fall distance itself).
+  fall-damage: true
+  placed-block-seconds: 8
+  # Extra push the plugin gives NPC bodies near a wind charge blast. 0 = only the game's own knockback (recommended: that
+  # already launches Citizens bodies about 6 blocks, like a player). The mace slam tops up a weak launch by itself.
+  wind-charge-boost: 0.0
+  wind-charge-radius: 3.0
+  pearl-damage: 5.0        # damage when a thrown pearl lands (NPC bodies are teleported by the plugin)
+  eat-below-health: 12.0
+  aim-error-degrees: 1.5
+
 # "Life" mode makes NPCs behave like players on an SMP while nothing else controls them (no fight, mass action or path):
 # they wander near their home, look at nearby players, fidget (jump, sneak, swing) and, with the ai: section on, chat.
-# Turn it on per NPC with /npc life <targets> on, or for every new NPC with default-for-new-npcs.
+# Turn it on per NPC with /npcwars life <targets> on, or for every new NPC with default-for-new-npcs.
 life:
   enabled: true
   default-for-new-npcs: false
@@ -126,27 +156,27 @@ life:
     sneak: 5
     swing: 5
 
-# Routes (/npc path): waypoint sequences NPCs walk, optionally ending in a fight.
+# Routes (/npcwars path): waypoint sequences NPCs walk, optionally ending in a fight.
 routes:
   # An NPC that cannot reach a waypoint within this time skips it, so a stuck NPC never blocks the sequence.
   waypoint-timeout-seconds: 30
 
-# Random names and skins. The pools live in pools.yml (edit it, or use /npc pool).
+# Random names and skins. The pools live in pools.yml (edit it, or use /npcwars pool).
 appearance:
-  # /npc spawn and spawnmany give each NPC a random name and skin unless you set them (name, skin=<player>).
+  # /npcwars spawn and spawnmany give each NPC a random name and skin unless you set them (name, skin=<player>).
   random-on-spawn: true
 
 # Downloads missing optional plugins into the plugins folder when the server starts. They load on the NEXT restart.
 # Sources: Citizens from its own build server (ci.citizensnpcs.co, no API key exists), EssentialsX (the kit plugin)
 # from Modrinth (SHA-512 verified). Only those hosts are accepted, jars are checked to really be that plugin, and
-# an existing plugin or file is never replaced. Set enabled: false to turn it all off; /npc deps install still works.
+# an existing plugin or file is never replaced. Set enabled: false to turn it all off; /npcwars deps install still works.
 auto-download:
   enabled: true
   on-startup: true
   plugins:
-    # Off by default: Citizens' newest build may not support your Minecraft version (it then disables itself but still
-    # owns /npc), and when it works it takes /npc from NPC-Wars (use /npcwars then). Only needed for /npc import citizens.
-    citizens: false
+    # Citizens provides the NPC bodies, so NPC-Wars cannot start without it. Only the pinned build 4250 (2.0.43) is ever
+    # downloaded: Citizens' newest build refuses to run on Minecraft 1.21.11.
+    citizens: true
     essentialsx: true
 
 kits:
@@ -154,7 +184,7 @@ kits:
   clear-before-apply: true
 
 # All texts use MiniMessage (https://docs.advntr.dev/minimessage/format.html). <prefix> is the prefix below.
-# Team names never appear in any of these in-game messages; only the admin commands /npc team list|info show them.
+# Team names never appear in any of these in-game messages; only the admin commands /npcwars team list|info show them.
 messages:
   prefix: '<dark_gray>[<gold>NPC-Wars<dark_gray>]<reset> '
 
@@ -178,6 +208,10 @@ messages:
     player-offline: '<prefix><red>Player <white><player><red> is not online.'
 
   npc:
+    moved: '<prefix><green>Moved <white><count><green> NPC(s).'
+    gave: '<prefix><green>Gave the item to <white><count><green> NPC(s) (<full> had no room).'
+    cleared: '<prefix><green>Emptied the inventory of <white><count><green> NPC(s).'
+    invalid-item: '<prefix><red>Cannot give "<input>": <reason>'
     spawned: '<prefix><green>Spawned NPC <white>#<id><green>. Shift + Right-click it to equip it.'
     spawned-many: '<prefix><green>Spawned <white><count><green> NPCs.'
     invalid-count: '<prefix><red>"<input>" is not a valid count (1-<max>).'
@@ -203,7 +237,7 @@ messages:
     not-found: '<prefix><red>No NPC matches "<input>".'
     need-single: '<prefix><red>"<input>" matches more than one NPC; name exactly one.'
     none-matched: '<prefix><red>None of those targets matched an NPC.'
-    none-exist: '<prefix><red>There are no NPCs yet. Spawn some with /npc spawn.'
+    none-exist: '<prefix><red>There are no NPCs yet. Spawn some with /npcwars spawn.'
     invalid-target: '<prefix><red>"<input>" is not an NPC id, id list (1,2,3), range (3-9), all, selected, look or team:N.'
     range-too-large: '<prefix><red>That id range is too large.'
 
@@ -212,7 +246,7 @@ messages:
     added: '<prefix><green>Added <white><npcs><green> NPC(s) and <white><players><green> player(s) to team <white><team><green>.'
     massadded: '<prefix><green>Team <white><team><green> now holds all <white><total><green> NPC(s) (<white><changed><green> added or moved).'
     removed: '<prefix><green>Took <white><count><green> member(s) out of their team.'
-    none: '<prefix><gray>There are no teams yet. Create one with /npc team add 1 Steve (or an NPC id).'
+    none: '<prefix><gray>There are no teams yet. Create one with /npcwars team add 1 Steve (or an NPC id).'
     list-header: '<prefix><gold><count> team(s) <dark_gray>(names are admin-only and never shown in game)'
     list-entry: '<yellow>Team <team> <gray>name <white><name> <gray>NPCs <white><npcs> <gray>players <white><players>'
     info: '<prefix><gold>Team <team><newline><gray>Admin name: <white><name><newline><gray>NPCs: <white><npcs><newline><gray>Players: <white><players>'
@@ -234,9 +268,9 @@ messages:
     winner-players: '<prefix><green><bold>The players win the fight!'
     draw: '<prefix><yellow>Nobody is left standing: it is a draw.'
     start-ok: '<prefix><green>Fight started.'
-    schedule-ok: '<prefix><green>Fight scheduled to start in <white><time><green>. Use /npc stopfight to cancel.'
-    already-running: '<prefix><red>A fight is already running. Use /npc stopfight to end it.'
-    no-npcs: '<prefix><red>There are no NPCs. Spawn some with /npc spawn or /npc spawnmany.'
+    schedule-ok: '<prefix><green>Fight scheduled to start in <white><time><green>. Use /npcwars stopfight to cancel.'
+    already-running: '<prefix><red>A fight is already running. Use /npcwars stopfight to end it.'
+    no-npcs: '<prefix><red>There are no NPCs. Spawn some with /npcwars spawn or /npcwars spawnmany.'
     not-enough-sides: '<prefix><red>A fight needs at least two sides, for example two teams of NPCs, or a team plus a player.'
     nothing-to-stop: '<prefix><red>There is no fight to stop.'
     invalid-time: '<prefix><red>"<input>" is not a time. Examples: 30s, 5m, 1h, 1h30m.'
@@ -254,25 +288,32 @@ messages:
     failed: '<prefix><red>Could not download <white><plugin><red>: <detail>'
 
   import:
-    citizens-missing: '<prefix><red>Citizens is not running. Use <white>/npc deps install citizens<red> and restart the server.'
+    citizens-missing: '<prefix><red>Citizens is not running. Use <white>/npcwars deps install citizens<red> and restart the server.'
     invalid-ids: '<prefix><red>"<input>" is not a list of Citizens NPC ids (examples: 3, 1,2,7, 5-9, all).'
     nothing: '<prefix><red>No Citizens player NPCs were imported (<skipped> skipped: not player NPCs, unplaced or already imported).'
     done: '<prefix><green>Imported <white><count><green> NPC(s) from Citizens (<skipped> skipped).'
     limit: '<prefix><red>Stopped at the limit of <white><max><red> NPCs (npc.max-npcs).'
 
+  debug:
+    turned-on: '<prefix><green>Debug is on: the plugin tells you what it does (NPC spawned, fight started, who won, ...).'
+    turned-off: '<prefix><green>Debug is off: the plugin is quiet. Errors, lists and info still show. Turn it back on with <white>/npcwars debug on<green>.'
+    is-on: '<prefix><gray>Debug is <green>on<gray>. <white>/npcwars debug off<gray> silences the plugin.'
+    is-off: '<prefix><gray>Debug is <red>off<gray>. <white>/npcwars debug on<gray> shows what the plugin does.'
+
   route:
     invalid-name: '<prefix><red>"<input>" is not a valid route name (letters, digits, _ and -, up to 24).'
     exists: '<prefix><red>A route named <white><route><red> already exists.'
-    not-found: '<prefix><red>No route named <white><route><red>. See <white>/npc path list<red>.'
-    created: '<prefix><green>Created route <white><route><green> in world <white><world><green>. Add waypoints with <white>/npc path add <route><green>.'
+    not-found: '<prefix><red>No route named <white><route><red>. See <white>/npcwars path list<red>.'
+    created: '<prefix><green>Created route <white><route><green> in world <white><world><green>. Add waypoints with <white>/npcwars path add <route><green>.'
     point-added: '<prefix><green>Waypoint <white>#<index><green> added to <white><route><green> (<where>).'
     point-removed: '<prefix><green>Removed waypoint <white>#<index><green> from <white><route><green>.'
     invalid-index: '<prefix><red>"<input>" is not a waypoint number (1-<max>).'
+    world-unknown: '<prefix><red>There is no world named <white><input><red>.'
     invalid-coordinate: '<prefix><red>"<input>" is not a valid coordinate.'
     world-mismatch: '<prefix><red>Route <white><route><red> is in world <white><world><red>; stand in that world to add waypoints.'
     cleared: '<prefix><green>Removed every waypoint from <white><route><green>.'
     deleted: '<prefix><green>Deleted route <white><route><green>.'
-    none: '<prefix><red>There are no routes yet. Create one with <white>/npc path create <name><red>.'
+    none: '<prefix><red>There are no routes yet. Create one with <white>/npcwars path create <name><red>.'
     list-header: '<prefix><gold><count> route(s):'
     list-entry: '<yellow><route> <gray>- <points> waypoint(s), world <world>'
     info: '<prefix><gold>Route <white><route><gold>: <points> waypoint(s), about <length> blocks, world <world>'
@@ -284,7 +325,7 @@ messages:
     run-started: '<prefix><green>Sent <white><count><green> NPC(s) along <white><route><green>; they will <then>.'
     stopped: '<prefix><green>Stopped <white><count><green> NPC(s) walking routes.'
     finished: '<prefix><gold>All <white><count><gold> NPC(s) have reached the end of route <white><route><gold>.'
-    finished-hint: '<prefix><gray>Start the fight with <white>/npc fight<gray> or <white>/npc timefight <time><gray>.'
+    finished-hint: '<prefix><gray>Start the fight with <white>/npcwars fight<gray> or <white>/npcwars timefight <time><gray>.'
     fight-started: '<prefix><green>The fight was started automatically.'
     fight-scheduled: '<prefix><green>The fight starts in <white><time><green>.'
     fight-not-possible: '<prefix><red>The fight could not start: it needs at least two sides (teams) that can fight.'
@@ -297,7 +338,7 @@ messages:
   appearance:
     randomized: '<prefix><green>Gave <white><count><green> NPC(s) new random <what>.'
     pool-list: '<prefix><gold><count> <kind>: <white><values>'
-    pool-empty: '<prefix><red>The <kind> pool is empty. Add some with <white>/npc pool <kind> add <value><red>.'
+    pool-empty: '<prefix><red>The <kind> pool is empty. Add some with <white>/npcwars pool <kind> add <value><red>.'
     pool-added: '<prefix><green>Added <white><input><green> to the <kind> pool.'
     pool-removed: '<prefix><green>Removed <white><input><green> from the <kind> pool.'
     pool-missing: '<prefix><red><input> is not in the <kind> pool.'

@@ -6,7 +6,7 @@ import java.util.List;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 
-/** {@code /npc say}: make an NPC say something in public chat. */
+/** {@code /npcwars say}: make an NPC say something in public chat. */
 final class ChatCommands {
 
     private ChatCommands() {

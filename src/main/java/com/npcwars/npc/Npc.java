@@ -2,23 +2,28 @@ package com.npcwars.npc;
 
 import com.npcwars.NpcWarsPlugin;
 import com.npcwars.npc.control.NpcController;
+import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.Map;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
-import org.bukkit.entity.Mannequin;
+import net.citizensnpcs.api.npc.NPC;
+import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
 /**
- * One NPC: the saved record (id, home position, skin, equipment) plus its live {@link Mannequin} body, which may be
- * absent while the chunk is unloaded or after the NPC died. Main thread only.
+ * One NPC: the saved record (id, home position, skin, inventory) plus its live body, a Citizens player NPC, which may
+ * be absent while the chunk is unloaded or after the NPC died. Main thread only.
  */
 public final class Npc {
 
     private final int id;
     private final NpcController controller;
-    private final EnumMap<NpcSlot, ItemStack> equipment = new EnumMap<>(NpcSlot.class);
+    /** Size of a player inventory: hotbar 0-8, storage 9-35, boots 36, leggings 37, chestplate 38, helmet 39, off hand 40. */
+    public static final int INVENTORY_SIZE = 41;
+
+    private final ItemStack[] inventory = new ItemStack[INVENTORY_SIZE];
 
     private String label;
     private String worldName;
@@ -30,7 +35,8 @@ public final class Npc {
     private String skin;
     private Behavior behavior = Behavior.STILL;
 
-    private Mannequin entity;
+    private NPC citizen;
+    private Player entity;
     /** While {@code true} the maintenance task will not respawn this NPC (it is waiting for a fight to end). */
     private boolean suppressed;
     /** Server tick at which an idle (non-fight) death may respawn; 0 when not waiting. */
@@ -130,35 +136,72 @@ public final class Npc {
         return world == null ? null : new Location(world, x, y, z, yaw, pitch);
     }
 
-    /** @return a defensive copy of the item in a slot, or {@code null} if empty */
+    /** @return a defensive copy of the item in an equipment slot, or {@code null} if empty */
     public ItemStack equipment(NpcSlot slot) {
-        ItemStack item = equipment.get(slot);
-        return item == null ? null : item.clone();
+        return item(slot.inventoryIndex());
     }
 
     /** Stores a copy of the item (or clears the slot for {@code null}/air). Does not touch the live entity. */
     public void setEquipment(NpcSlot slot, ItemStack item) {
-        if (item == null || item.getType().isAir()) {
-            equipment.remove(slot);
-        } else {
-            equipment.put(slot, item.clone());
+        setItem(slot.inventoryIndex(), item);
+    }
+
+    /** @return the filled equipment slots (armor, hotbar slot 0 as the main hand, off hand) */
+    public Map<NpcSlot, ItemStack> equipmentView() {
+        Map<NpcSlot, ItemStack> view = new EnumMap<>(NpcSlot.class);
+        for (NpcSlot slot : NpcSlot.values()) {
+            ItemStack item = inventory[slot.inventoryIndex()];
+            if (item != null) {
+                view.put(slot, item.clone());
+            }
+        }
+        return java.util.Collections.unmodifiableMap(view);
+    }
+
+    /** Empties the whole stored inventory (armor, hands, hotbar and storage). */
+    public void clearEquipment() {
+        Arrays.fill(inventory, null);
+    }
+
+    /** @return a defensive copy of one inventory slot (0-40), or {@code null} if empty */
+    public ItemStack item(int index) {
+        ItemStack item = inventory[index];
+        return item == null ? null : item.clone();
+    }
+
+    /** Stores a copy of the item in an inventory slot (0-40), or clears it for {@code null}/air. */
+    public void setItem(int index, ItemStack item) {
+        inventory[index] = item == null || item.getType().isAir() ? null : item.clone();
+    }
+
+    /** @return copies of all 41 inventory slots; empty slots are {@code null} */
+    public ItemStack[] inventorySnapshot() {
+        ItemStack[] copy = new ItemStack[INVENTORY_SIZE];
+        for (int i = 0; i < INVENTORY_SIZE; i++) {
+            copy[i] = inventory[i] == null ? null : inventory[i].clone();
+        }
+        return copy;
+    }
+
+    /** Replaces the stored inventory with copies of the given items (extra entries are ignored). */
+    public void setInventory(ItemStack[] items) {
+        for (int i = 0; i < INVENTORY_SIZE; i++) {
+            setItem(i, items != null && i < items.length ? items[i] : null);
         }
     }
 
-    public Map<NpcSlot, ItemStack> equipmentView() {
-        return java.util.Collections.unmodifiableMap(equipment);
-    }
-
-    public void clearEquipment() {
-        equipment.clear();
-    }
-
-    /** @return the live body, or {@code null} if not spawned */
-    public Mannequin entity() {
+    /** @return the live body (a player entity owned by Citizens), or {@code null} if not spawned */
+    public Player entity() {
         return entity;
     }
 
-    void setEntity(Mannequin entity) {
+    /** @return the Citizens NPC behind the live body, or {@code null} */
+    public NPC citizen() {
+        return citizen;
+    }
+
+    void setBody(NPC citizen, Player entity) {
+        this.citizen = citizen;
         this.entity = entity;
     }
 

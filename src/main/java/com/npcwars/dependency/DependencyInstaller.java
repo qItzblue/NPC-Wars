@@ -99,7 +99,19 @@ public final class DependencyInstaller {
         return true;
     }
 
-    /** Runs on a worker thread: no Bukkit API in here. */
+    /**
+     * Installs the missing plugins right now, on the calling (main) thread. Only for the one-time bootstrap in
+     * {@code onEnable}, when the plugin cannot work at all without the download and no scheduler is available yet.
+     */
+    public List<Outcome> installBlocking(Collection<PluginSource> wanted) {
+        Set<String> loaded = new HashSet<>();
+        for (Plugin installed : Bukkit.getPluginManager().getPlugins()) {
+            loaded.add(installed.getName().toLowerCase(Locale.ROOT));
+        }
+        return run(List.copyOf(wanted), loaded, Bukkit.getMinecraftVersion(), plugin.getDataFolder().getParentFile().toPath());
+    }
+
+    /** Runs on a worker thread (or, for the bootstrap, the main thread): no other Bukkit API in here. */
     private List<Outcome> run(List<PluginSource> list, Set<String> loaded, String minecraft, Path folder) {
         List<Outcome> outcomes = new ArrayList<>();
         HttpClient http = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NORMAL)

@@ -14,7 +14,6 @@ import org.bukkit.GameMode;
 import org.bukkit.HeightMap;
 import org.bukkit.Location;
 import org.bukkit.World;
-import org.bukkit.entity.Mannequin;
 import org.bukkit.entity.Player;
 
 /**
@@ -82,7 +81,7 @@ public final class LifeAi {
         states.clear();
     }
 
-    /** @return a short description for {@code /npc info} */
+    /** @return a short description for {@code /npcwars info} */
     public String describe(Npc npc) {
         State state = states.get(npc.id());
         return state == null ? "idle" : state.activity.name().toLowerCase(java.util.Locale.ROOT);
@@ -91,7 +90,7 @@ public final class LifeAi {
     // ---------------------------------------------------------------- behaviour
 
     private void step(Npc npc, State state, long tick, Settings settings) {
-        Mannequin body = npc.entity();
+        Player body = npc.entity();
         NpcController controller = npc.controller();
         if (state.fresh) {
             state.fresh = false;
@@ -222,12 +221,12 @@ public final class LifeAi {
     }
 
     private void lookAtNearestPlayer(Npc npc, double radius) {
-        Mannequin body = npc.entity();
+        Player body = npc.entity();
         Player nearest = null;
         double best = Double.MAX_VALUE;
         for (Player player : body.getWorld().getNearbyPlayers(body.getLocation(), radius)) {
-            if (player.getGameMode() == GameMode.SPECTATOR) {
-                continue;
+            if (player.getGameMode() == GameMode.SPECTATOR || plugin.npcs().byEntity(player) != null) {
+                continue; // spectators, and NPC bodies (which are player entities too)
             }
             double distance = player.getLocation().distanceSquared(body.getLocation());
             if (distance < best) {

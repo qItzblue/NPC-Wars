@@ -2,7 +2,6 @@ package com.npcwars.npc;
 
 import com.npcwars.NpcWarsPlugin;
 import com.npcwars.config.Settings;
-import io.papermc.paper.datacomponent.item.ResolvableProfile;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collection;
@@ -12,24 +11,25 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.UUID;
-import net.kyori.adventure.text.Component;
+import net.citizensnpcs.api.CitizensAPI;
+import net.citizensnpcs.api.npc.NPC;
+import net.citizensnpcs.trait.SkinTrait;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
-import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Entity;
-import org.bukkit.entity.Mannequin;
-import org.bukkit.inventory.EntityEquipment;
+import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.util.Vector;
 
 /**
- * Owns every {@link Npc}: creation, removal, spawning of the Mannequin bodies, equipment, persistence and the
+ * Owns every {@link Npc}: creation, removal, spawning of the Citizens player bodies, inventories, persistence and the
  * per-tick maintenance that keeps bodies and records in sync. data.yml is the single source of truth, so bodies are
  * spawned non-persistent and re-created from the records whenever their chunk loads.
  */
@@ -39,7 +39,6 @@ public final class NpcManager {
     private static final int SPAWNS_PER_PASS = 40;
 
     private final NpcWarsPlugin plugin;
-    private final NamespacedKey idKey;
     private final Map<Integer, Npc> npcs = new TreeMap<>();
     private final Map<UUID, Npc> byEntity = new HashMap<>();
     private final NpcSelection selection = new NpcSelection();
@@ -48,7 +47,6 @@ public final class NpcManager {
 
     public NpcManager(NpcWarsPlugin plugin) {
         this.plugin = plugin;
-        this.idKey = new NamespacedKey(plugin, "npc_id");
     }
 
     // ---------------------------------------------------------------- lookup
@@ -68,7 +66,7 @@ public final class NpcManager {
 
     /** @return the NPC whose body is this entity, or {@code null} for any other entity */
     public Npc byEntity(Entity entity) {
-        if (!(entity instanceof Mannequin)) {
+        if (!(entity instanceof Player)) {
             return null;
         }
         return byEntity.get(entity.getUniqueId());
@@ -143,32 +141,32 @@ public final class NpcManager {
             return false;
         }
         forgetBody(npc);
-        Mannequin body;
+        NPC citizen = CitizensAPI.getTemporaryNPCRegistry().createNPC(EntityType.PLAYER, bodyName(npc));
         try {
-            body = world.spawn(where, Mannequin.class, spawned -> configure(npc, spawned));
+            prepare(npc, citizen);
+            if (!citizen.spawn(where) || !citizen.isSpawned() || !(citizen.getEntity() instanceof Player body)) {
+                citizen.destroy();
+                plugin.getLogger().warning("NPC " + npc.id() + " was not spawned (another plugin cancelled the spawn?)");
+                return false;
+            }
+            npc.setBody(citizen, body);
+            configure(npc, body);
         } catch (RuntimeException ex) {
-            plugin.getLogger().warning("Could not spawn NPC " + npc.id() + ": " + ex.getMessage());
+            citizen.destroy();
+            npc.setBody(null, null);
+            plugin.getLogger().warning("Could not spawn NPC " + npc.id() + ": " + ex);
             return false;
         }
-        if (!body.isValid()) {
-            plugin.getLogger().warning("NPC " + npc.id() + " was not spawned (another plugin cancelled the spawn?)");
-            return false;
-        }
-        npc.setEntity(body);
         npc.setRespawnAtTick(0);
-        byEntity.put(body.getUniqueId(), npc);
+        byEntity.put(npc.entity().getUniqueId(), npc);
         npc.controller().reset();
         return true;
     }
 
     /** Removes the body but keeps the record. */
     public void despawnBody(Npc npc) {
-        Mannequin body = npc.entity();
         npc.controller().stop();
         forgetBody(npc);
-        if (body != null && body.isValid()) {
-            body.remove();
-        }
     }
 
     /** Called when the body died: drops the stale reference. */
@@ -179,80 +177,120 @@ public final class NpcManager {
     }
 
     private void forgetBody(Npc npc) {
-        Mannequin old = npc.entity();
+        Player old = npc.entity();
+        NPC citizen = npc.citizen();
         if (old != null) {
             byEntity.remove(old.getUniqueId());
         }
-        npc.setEntity(null);
+        npc.setBody(null, null);
+        if (citizen != null) {
+            citizen.destroy(); // despawns the entity and takes it out of Citizens for good
+        }
     }
 
-    private void configure(Npc npc, Mannequin body) {
+    /** The name shown above the body; a player profile name is at most 16 characters. */
+    private static String bodyName(Npc npc) {
+        String label = npc.label() == null || npc.label().isBlank() ? "NPC " + npc.id() : npc.label();
+        return label.length() > 16 ? label.substring(0, 16) : label;
+    }
+
+    /** Settings that must be in place before the body appears: name, skin, protection, nameplate. */
+    private void prepare(Npc npc, NPC citizen) {
         Settings settings = plugin.settings();
-        body.setPersistent(false);
-        body.getPersistentDataContainer().set(idKey, PersistentDataType.INTEGER, npc.id());
-        body.setDescription(null);
-        body.setImmovable(false);
+        citizen.setProtected(false); // damage rules are ours (NpcDamageListener), not Citizens' blanket protection
+        citizen.data().setPersistent(NPC.Metadata.NAMEPLATE_VISIBLE, settings.showNametag);
+        SkinTrait skin = citizen.getOrAddTrait(SkinTrait.class);
+        String skinName = npc.skin() != null ? npc.skin() : settings.defaultSkin;
+        if (skinName != null && !skinName.isBlank()) {
+            skin.setSkinName(skinName);
+        } else {
+            skin.setFetchDefaultSkin(false); // no skin set: the default Steve/Alex, not the skin of an account named like the NPC
+        }
+    }
+
+    private void configure(Npc npc, Player body) {
+        Settings settings = plugin.settings();
         body.setInvulnerable(false);
         body.setCanPickupItems(false);
+        body.setFoodLevel(20);
+        body.setSaturation(20f);
         AttributeInstance maxHealth = body.getAttribute(Attribute.MAX_HEALTH);
         if (maxHealth != null) {
             maxHealth.setBaseValue(settings.maxHealth);
         }
         body.setHealth(Math.min(settings.maxHealth, maxHealth == null ? settings.maxHealth : maxHealth.getValue()));
-        applyAppearance(npc, body);
-        EntityEquipment equipment = body.getEquipment();
-        for (NpcSlot slot : NpcSlot.values()) {
-            equipment.setItem(slot.bukkit(), npc.equipment(slot), true);
-        }
+        applyInventory(npc);
     }
 
-    /** Applies the label (if nametags are on) and the skin to a body, new or already spawned. */
-    private void applyAppearance(Npc npc, Mannequin body) {
-        Settings settings = plugin.settings();
-        if (settings.showNametag && npc.label() != null && !npc.label().isBlank()) {
-            body.customName(Component.text(npc.label()));
-            body.setCustomNameVisible(true);
-        } else {
-            body.customName(null);
-            body.setCustomNameVisible(false);
-        }
-        String skin = npc.skin() != null ? npc.skin() : settings.defaultSkin;
-        if (skin != null && !skin.isBlank()) {
-            body.setProfile(ResolvableProfile.resolvableProfile().name(skin).build());
-        } else {
-            body.setProfile(Mannequin.defaultProfile());
-        }
-    }
-
-    /** Pushes the stored equipment onto the live body. */
-    public void applyEquipment(Npc npc) {
-        Mannequin body = npc.entity();
+    /** Puts the stored inventory (armor, hands, hotbar and storage) onto the live body, replacing what it holds. */
+    public void applyInventory(Npc npc) {
+        Player body = npc.entity();
         if (body == null || !body.isValid()) {
             return;
         }
-        EntityEquipment equipment = body.getEquipment();
-        for (NpcSlot slot : NpcSlot.values()) {
-            equipment.setItem(slot.bukkit(), npc.equipment(slot), true);
+        PlayerInventory inventory = body.getInventory();
+        inventory.clear();
+        for (int i = 0; i < Npc.INVENTORY_SIZE; i++) {
+            ItemStack item = npc.item(i);
+            if (item != null) {
+                inventory.setItem(i, item);
+            }
         }
+        inventory.setHeldItemSlot(0);
+    }
+
+    /**
+     * Adds an item to an NPC: armor goes into its armor slot if that is free, a shield into the off hand, anything else
+     * into the first free hotbar or storage slot. Saves and updates the live body.
+     *
+     * @return {@code false} if there was no room
+     */
+    public boolean giveItem(Npc npc, ItemStack item) {
+        NpcSlot preferred = NpcSlot.preferredFor(item);
+        int slot = -1;
+        if (preferred != NpcSlot.MAIN_HAND && npc.item(preferred.inventoryIndex()) == null) {
+            slot = preferred.inventoryIndex();
+        } else {
+            for (int i = 0; i < 36; i++) {
+                if (npc.item(i) == null) {
+                    slot = i;
+                    break;
+                }
+            }
+        }
+        if (slot < 0) {
+            return false;
+        }
+        npc.setItem(slot, item);
+        Player body = npc.entity();
+        if (body != null && body.isValid()) {
+            body.getInventory().setItem(slot, npc.item(slot));
+        }
+        plugin.data().requestSave();
+        return true;
     }
 
     /** Sets one equipment slot, updates the live body and saves. */
     public void setEquipment(Npc npc, NpcSlot slot, ItemStack item) {
         npc.setEquipment(slot, item);
-        Mannequin body = npc.entity();
+        Player body = npc.entity();
         if (body != null && body.isValid()) {
-            body.getEquipment().setItem(slot.bukkit(), npc.equipment(slot), true);
+            body.getInventory().setItem(slot.inventoryIndex(), npc.equipment(slot));
         }
         plugin.data().requestSave();
     }
 
-    /** Applies a full loadout in one go (used by kits). */
-    public void setLoadout(Npc npc, Map<NpcSlot, ItemStack> loadout, boolean clearOthers) {
+    /**
+     * Applies a kit: each entry is an inventory slot (0-40) and its item.
+     *
+     * @param clearOthers {@code true} to empty every other slot first
+     */
+    public void setLoadout(Npc npc, Map<Integer, ItemStack> loadout, boolean clearOthers) {
         if (clearOthers) {
             npc.clearEquipment();
         }
-        loadout.forEach(npc::setEquipment);
-        applyEquipment(npc);
+        loadout.forEach(npc::setItem);
+        applyInventory(npc);
         plugin.data().requestSave();
     }
 
@@ -272,7 +310,7 @@ public final class NpcManager {
     /** Moves the NPC (body and home position). */
     public void teleport(Npc npc, Location location) {
         npc.setHome(location);
-        Mannequin body = npc.entity();
+        Player body = npc.entity();
         if (body != null && body.isValid()) {
             body.teleport(location);
             body.setVelocity(new Vector());
@@ -282,12 +320,13 @@ public final class NpcManager {
 
     /** Restores full health and clears fire, effects and fall damage. */
     public void heal(Npc npc) {
-        Mannequin body = npc.entity();
+        Player body = npc.entity();
         if (body == null || !body.isValid() || body.isDead()) {
             return;
         }
         AttributeInstance maxHealth = body.getAttribute(Attribute.MAX_HEALTH);
         body.setHealth(maxHealth == null ? plugin.settings().maxHealth : maxHealth.getValue());
+        body.setFoodLevel(20);
         body.setFireTicks(0);
         body.setFallDistance(0f);
         body.setNoDamageTicks(0);
@@ -296,9 +335,22 @@ public final class NpcManager {
         }
     }
 
+    /**
+     * Skin and name changes need a fresh body (Citizens reads them when the NPC spawns). The NPC reappears at the same
+     * spot with the same health and inventory.
+     */
     private void refreshAppearance(Npc npc) {
-        if (npc.isLive()) {
-            applyAppearance(npc, npc.entity());
+        if (!npc.isLive()) {
+            return;
+        }
+        Player old = npc.entity();
+        Location at = old.getLocation();
+        double health = old.getHealth();
+        ItemStack[] held = old.getInventory().getContents();
+        forgetBody(npc);
+        if (spawnBodyAt(npc, at) && npc.isLive()) {
+            npc.entity().setHealth(Math.min(health, npc.entity().getHealth()));
+            npc.entity().getInventory().setContents(held);
         }
     }
 
@@ -404,9 +456,17 @@ public final class NpcManager {
             if (npc.behavior() != Behavior.STILL) {
                 entry.set("behavior", npc.behavior().name().toLowerCase(java.util.Locale.ROOT));
             }
-            for (Map.Entry<NpcSlot, ItemStack> item : npc.equipmentView().entrySet()) {
-                entry.set("equipment." + item.getKey().key(),
-                        Base64.getEncoder().encodeToString(item.getValue().serializeAsBytes()));
+            ItemStack[] stored = npc.inventorySnapshot();
+            boolean any = false;
+            for (int i = 0; i < stored.length; i++) {
+                if (stored[i] == null) {
+                    stored[i] = new ItemStack(org.bukkit.Material.AIR);
+                } else {
+                    any = true;
+                }
+            }
+            if (any) {
+                entry.set("inventory", Base64.getEncoder().encodeToString(ItemStack.serializeItemsAsBytes(stored)));
             }
         }
     }
@@ -437,26 +497,41 @@ public final class NpcManager {
                         entry.getDouble("z"), (float) entry.getDouble("yaw"), (float) entry.getDouble("pitch"));
                 npc.setSkin(entry.getString("skin"));
                 npc.setBehavior(Behavior.parse(entry.getString("behavior"), Behavior.STILL));
-                ConfigurationSection gear = entry.getConfigurationSection("equipment");
-                if (gear != null) {
-                    for (String slotKey : gear.getKeys(false)) {
-                        NpcSlot slot = NpcSlot.fromKey(slotKey);
-                        String encoded = gear.getString(slotKey);
-                        if (slot == null || encoded == null) {
-                            continue;
-                        }
-                        try {
-                            npc.setEquipment(slot, ItemStack.deserializeBytes(Base64.getDecoder().decode(encoded)));
-                        } catch (IllegalArgumentException | NullPointerException ex) {
-                            plugin.getLogger().warning("NPC " + id + ": could not read " + slotKey + " item (" + ex.getMessage() + ")");
-                        }
-                    }
-                }
+                loadInventory(npc, entry);
                 npcs.put(id, npc);
                 highest = Math.max(highest, id);
             }
         }
         nextId = Math.max(root.getInt("next-id", 1), highest + 1);
+    }
+
+    /** Reads the inventory (current format) or the six equipment slots written by older versions. */
+    private void loadInventory(Npc npc, ConfigurationSection entry) {
+        String encoded = entry.getString("inventory");
+        if (encoded != null) {
+            try {
+                npc.setInventory(ItemStack.deserializeItemsFromBytes(Base64.getDecoder().decode(encoded)));
+            } catch (IllegalArgumentException | NullPointerException ex) {
+                plugin.getLogger().warning("NPC " + npc.id() + ": could not read its inventory (" + ex.getMessage() + ")");
+            }
+            return;
+        }
+        ConfigurationSection gear = entry.getConfigurationSection("equipment");
+        if (gear == null) {
+            return;
+        }
+        for (String slotKey : gear.getKeys(false)) {
+            NpcSlot slot = NpcSlot.fromKey(slotKey);
+            String legacy = gear.getString(slotKey);
+            if (slot == null || legacy == null) {
+                continue;
+            }
+            try {
+                npc.setEquipment(slot, ItemStack.deserializeBytes(Base64.getDecoder().decode(legacy)));
+            } catch (IllegalArgumentException | NullPointerException ex) {
+                plugin.getLogger().warning("NPC " + npc.id() + ": could not read " + slotKey + " item (" + ex.getMessage() + ")");
+            }
+        }
     }
 
     /** Ids of all NPCs as strings, for tab completion. */
@@ -472,11 +547,7 @@ public final class NpcManager {
     public void shutdown() {
         for (Npc npc : npcs.values()) {
             npc.controller().stop();
-            Mannequin body = npc.entity();
-            if (body != null && body.isValid()) {
-                body.remove();
-            }
-            npc.setEntity(null);
+            forgetBody(npc);
         }
         byEntity.clear();
     }

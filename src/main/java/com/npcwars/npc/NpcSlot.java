@@ -5,21 +5,28 @@ import org.bukkit.Material;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 
-/** The six equipment slots an NPC can wear. */
+/** The six equipment slots the GUI edits; the NPC itself has a full player inventory (see {@link Npc#INVENTORY_SIZE}). */
 public enum NpcSlot {
-    HEAD("head", EquipmentSlot.HEAD),
-    CHEST("chest", EquipmentSlot.CHEST),
-    LEGS("legs", EquipmentSlot.LEGS),
-    FEET("feet", EquipmentSlot.FEET),
-    MAIN_HAND("main-hand", EquipmentSlot.HAND),
-    OFF_HAND("off-hand", EquipmentSlot.OFF_HAND);
+    HEAD("head", EquipmentSlot.HEAD, 39),
+    CHEST("chest", EquipmentSlot.CHEST, 38),
+    LEGS("legs", EquipmentSlot.LEGS, 37),
+    FEET("feet", EquipmentSlot.FEET, 36),
+    MAIN_HAND("main-hand", EquipmentSlot.HAND, 0),
+    OFF_HAND("off-hand", EquipmentSlot.OFF_HAND, 40);
 
     private final String key;
     private final EquipmentSlot bukkit;
+    private final int inventoryIndex;
 
-    NpcSlot(String key, EquipmentSlot bukkit) {
+    NpcSlot(String key, EquipmentSlot bukkit, int inventoryIndex) {
         this.key = key;
         this.bukkit = bukkit;
+        this.inventoryIndex = inventoryIndex;
+    }
+
+    /** @return the player-inventory slot this equipment slot lives in (hotbar slot 0 for the main hand) */
+    public int inventoryIndex() {
+        return inventoryIndex;
     }
 
     /** Key used in data.yml. */

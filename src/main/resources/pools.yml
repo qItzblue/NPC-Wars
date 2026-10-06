@@ -1,4 +1,4 @@
-# Pools used for random NPC names and skins (edit by hand or with /npc pool).
+# Pools used for random NPC names and skins (edit by hand or with /npcwars pool).
 # Skins are Minecraft player names; the server downloads the skin of that account.
 names:
   - Skyler

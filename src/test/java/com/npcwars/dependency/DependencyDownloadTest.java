@@ -140,15 +140,16 @@ class DependencyDownloadTest {
     }
 
     @Test
-    void citizensBuildPageIsParsed() {
-        String html = "<a href=\"artifact/dist/target/Citizens-2.0.44-b4258.jar\">x</a> "
-                + "<a href=\"artifact/dist/target/Citizens-2.0.44-b4258.jar\">y</a>";
-        Download download = CitizensSource.parse(html);
-        assertNotNull(download);
-        assertEquals("Citizens-2.0.44-b4258.jar", download.fileName());
-        assertEquals("https://ci.citizensnpcs.co/job/Citizens2/lastSuccessfulBuild/artifact/dist/target/Citizens-2.0.44-b4258.jar",
+    void citizensIsPinnedToTheTestedBuildWithAFixedChecksum() throws Exception {
+        Download download = new CitizensSource().resolve(null, "1.21.11");
+        assertEquals("Citizens", download.pluginName());
+        assertEquals("Citizens-2.0.43-b4250.jar", download.fileName());
+        assertEquals("https://ci.citizensnpcs.co/job/Citizens2/4250/artifact/dist/target/Citizens-2.0.43-b4250.jar",
                 download.uri().toString());
-        assertNull(CitizensSource.parse("<html>no build</html>"));
+        assertEquals(128, download.sha512().length());
+        assertTrue(Downloader.safeFileName(download.fileName()));
+        // the same answer whatever the server version: never "latest"
+        assertEquals(download, new CitizensSource().resolve(null, "26.2"));
     }
 
     @Test

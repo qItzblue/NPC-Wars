@@ -80,7 +80,7 @@ public final class Settings {
     public int hesitateMinTicks;
     public int hesitateMaxTicks;
     public int attackJitterTicks;
-    public org.bukkit.Material defaultWeapon;
+    public boolean restoreLoadout;
 
     // massaction
     public boolean attackDealsDamage;
@@ -89,6 +89,30 @@ public final class Settings {
 
     // kits
     public boolean clearBeforeApply;
+
+    // combat items
+    public boolean maceSlam;
+    public boolean axeStun;
+    public boolean useShield;
+    public boolean usePearls;
+    public boolean eating;
+    public boolean totems;
+    public boolean potions;
+    public boolean ranged;
+    public boolean throwables;
+    public boolean cobwebs;
+    public boolean waterClutch;
+    public boolean tnt;
+    public boolean endCrystals;
+    public boolean lava;
+    public boolean explosionsBreakBlocks;
+    public boolean fallDamage;
+    public int placedBlockTicks;
+    public double windChargeBoost;
+    public double windChargeRadius;
+    public double pearlDamage;
+    public double eatBelowHealth;
+    public double aimErrorDegrees;
 
     // life
     public boolean lifeEnabled;
@@ -105,6 +129,7 @@ public final class Settings {
     public long routeWaypointTimeoutTicks;
 
     // auto-download
+    public boolean autoDownloadEnabled;
     public boolean autoDownloadOnStartup;
     public Set<String> autoDownloadPlugins = Set.of();
 
@@ -172,13 +197,34 @@ public final class Settings {
         hesitateMinTicks = Math.max(0, c.getInt("fight.hesitate-min-ticks", 4));
         hesitateMaxTicks = Math.max(hesitateMinTicks, c.getInt("fight.hesitate-max-ticks", 14));
         attackJitterTicks = Math.max(0, c.getInt("fight.attack-jitter-ticks", 2));
-        String weapon = c.getString("fight.default-weapon", "STONE_SWORD");
-        defaultWeapon = weapon == null || weapon.isBlank() || weapon.equalsIgnoreCase("none")
-                ? null : org.bukkit.Material.matchMaterial(weapon.trim());
+        restoreLoadout = c.getBoolean("fight.restore-loadout", true);
         List<Integer> marks = new ArrayList<>(c.getIntegerList("fight.countdown-marks"));
         marks.removeIf(mark -> mark <= 0);
         marks.sort(java.util.Comparator.reverseOrder());
         countdownMarks = List.copyOf(marks);
+
+        maceSlam = c.getBoolean("combat.mace-slam", true);
+        axeStun = c.getBoolean("combat.axe-stun", true);
+        useShield = c.getBoolean("combat.shield", true);
+        usePearls = c.getBoolean("combat.pearls", true);
+        eating = c.getBoolean("combat.eating", true);
+        totems = c.getBoolean("combat.totems", true);
+        potions = c.getBoolean("combat.potions", true);
+        ranged = c.getBoolean("combat.ranged", true);
+        throwables = c.getBoolean("combat.throwables", true);
+        cobwebs = c.getBoolean("combat.cobwebs", true);
+        waterClutch = c.getBoolean("combat.water-clutch", true);
+        tnt = c.getBoolean("combat.tnt", true);
+        endCrystals = c.getBoolean("combat.end-crystals", true);
+        lava = c.getBoolean("combat.lava", false);
+        explosionsBreakBlocks = c.getBoolean("combat.explosions-break-blocks", false);
+        fallDamage = c.getBoolean("combat.fall-damage", true);
+        placedBlockTicks = Math.max(20, c.getInt("combat.placed-block-seconds", 8) * 20);
+        windChargeBoost = clamp(c.getDouble("combat.wind-charge-boost", 0.0), 0.0, 4.0);
+        windChargeRadius = clamp(c.getDouble("combat.wind-charge-radius", 3.0), 0.5, 8.0);
+        pearlDamage = clamp(c.getDouble("combat.pearl-damage", 5.0), 0.0, 40.0);
+        eatBelowHealth = clamp(c.getDouble("combat.eat-below-health", 12.0), 1.0, 40.0);
+        aimErrorDegrees = clamp(c.getDouble("combat.aim-error-degrees", 1.5), 0.0, 20.0);
 
         lifeEnabled = c.getBoolean("life.enabled", true);
         lifeDefault = c.getBoolean("life.default-for-new-npcs", false);
@@ -194,10 +240,11 @@ public final class Settings {
 
         routeWaypointTimeoutTicks = Math.max(5, c.getInt("routes.waypoint-timeout-seconds", 30)) * 20L;
 
-        autoDownloadOnStartup = c.getBoolean("auto-download.enabled", true) && c.getBoolean("auto-download.on-startup", true);
+        autoDownloadEnabled = c.getBoolean("auto-download.enabled", true);
+        autoDownloadOnStartup = autoDownloadEnabled && c.getBoolean("auto-download.on-startup", true);
         Set<String> wanted = new java.util.HashSet<>();
         for (String key : new String[] {"citizens", "essentialsx"}) {
-            if (c.getBoolean("auto-download.plugins." + key, !key.equals("citizens"))) {
+            if (c.getBoolean("auto-download.plugins." + key, true)) {
                 wanted.add(key);
             }
         }

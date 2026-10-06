@@ -20,6 +20,7 @@ import org.bukkit.inventory.meta.ItemMeta;
  * <pre>
  *   DIAMOND_SWORD sharpness:3 unbreaking:2
  *   iron_chestplate 1 enchant:protection:4 name:&amp;6Shiny_Plate
+ *   SPLASH_POTION potion:harming
  *   base64:&lt;serialized item&gt;
  * </pre>
  * The syntax is a superset of the EssentialsX kit item format for the parts that matter (item, amount, enchantments,
@@ -78,6 +79,7 @@ public final class ItemParser {
         int amount = 1;
         List<String[]> enchants = new ArrayList<>();
         String name = null;
+        String potion = null;
         List<String> lore = new ArrayList<>();
 
         for (String token : text.split("\\s+")) {
@@ -86,6 +88,8 @@ public final class ItemParser {
                 amount = Math.max(1, Math.min(99, Integer.parseInt(token)));
             } else if (lower.startsWith("name:")) {
                 name = token.substring(5).replace('_', ' ');
+            } else if (lower.startsWith("potion:")) {
+                potion = lower.substring(7).replace("minecraft:", "");
             } else if (lower.startsWith("lore:")) {
                 for (String part : token.substring(5).split("\\|")) {
                     lore.add(part.replace('_', ' '));
@@ -122,6 +126,18 @@ public final class ItemParser {
                 throw new IllegalArgumentException("bad enchantment level '" + enchant[1] + "'");
             }
             stack.addUnsafeEnchantment(enchantment, level);
+        }
+        if (potion != null) {
+            if (!(stack.getItemMeta() instanceof org.bukkit.inventory.meta.PotionMeta meta)) {
+                throw new IllegalArgumentException("potion: only works on potions and tipped arrows");
+            }
+            org.bukkit.potion.PotionType type = RegistryAccess.registryAccess().getRegistry(RegistryKey.POTION)
+                    .get(NamespacedKey.minecraft(potion));
+            if (type == null) {
+                throw new IllegalArgumentException("unknown potion '" + potion + "' (examples: healing, strong_healing, harming, strength, swiftness)");
+            }
+            meta.setBasePotionType(type);
+            stack.setItemMeta(meta);
         }
         if (name != null || !lore.isEmpty()) {
             ItemMeta meta = stack.getItemMeta();

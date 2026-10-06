@@ -41,15 +41,15 @@ public final class KitAllCommand implements TabExecutor {
         try {
             scope = parseScope(player, args);
         } catch (CommandException ex) {
-            messages.send(player, ex.messageKey(), ex.resolvers());
+            messages.sendAlways(player, ex.messageKey(), ex.resolvers());
             return true;
         }
         if (scope.resolve(plugin, player).isEmpty()) {
-            messages.send(player, "kits.no-targets", Messages.var("scope", scope.describe()));
+            messages.sendAlways(player, "kits.no-targets", Messages.var("scope", scope.describe()));
             return true;
         }
         if (plugin.kits().allKits().isEmpty()) {
-            messages.send(player, "kits.none");
+            messages.sendAlways(player, "kits.none");
             return true;
         }
         new KitMenu(plugin, player, scope).open(player);

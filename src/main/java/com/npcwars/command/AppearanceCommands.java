@@ -7,7 +7,7 @@ import com.npcwars.util.Completions;
 import java.util.ArrayList;
 import java.util.List;
 
-/** {@code /npc randomize} and {@code /npc pool}: random names and skins, and the pools they come from. */
+/** {@code /npcwars randomize} and {@code /npcwars pool}: random names and skins, and the pools they come from. */
 final class AppearanceCommands {
 
     private AppearanceCommands() {

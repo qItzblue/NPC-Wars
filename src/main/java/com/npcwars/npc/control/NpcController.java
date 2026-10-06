@@ -1,6 +1,7 @@
 package com.npcwars.npc.control;
 
 import com.npcwars.NpcWarsPlugin;
+import com.npcwars.combat.DamageCalculator;
 import com.npcwars.config.Settings;
 import com.npcwars.npc.Npc;
 import com.npcwars.path.Path;
@@ -9,14 +10,16 @@ import com.npcwars.path.PathService;
 import com.npcwars.path.Terrain;
 import org.bukkit.Location;
 import org.bukkit.World;
-import org.bukkit.entity.Mannequin;
+import org.bukkit.damage.DamageSource;
+import org.bukkit.damage.DamageType;
+import org.bukkit.entity.Player;
 import org.bukkit.entity.Pose;
 import org.bukkit.util.Vector;
 
 /**
- * Turns movement intents into motion for one NPC. A Mannequin has no AI, so every tick this class writes the
- * horizontal velocity, jump flag, pose and rotation itself, while gravity, collisions, step-ups and water physics stay
- * with the server. Intents are either a fixed direction or a goal (walked directly, or along an A* path when the
+ * Turns movement intents into motion for one NPC. A Citizens player body has no AI of its own, so every tick this class writes the
+ * horizontal velocity (and the jump velocity), pose and rotation itself, while gravity, collisions, step-ups and water
+ * physics stay with the server. Intents are either a fixed direction or a goal (walked directly, or along an A* path when the
  * straight line is blocked or the NPC gets stuck).
  */
 public final class NpcController {
@@ -24,6 +27,9 @@ public final class NpcController {
     /** How fast the NPC moves; {@link #SNEAK} and {@link #SPRINT} map to the speeds in config.yml. */
     public enum Gait { SNEAK, WALK, SPRINT }
 
+    /** Upward velocity of a vanilla jump, and the steady rise while swimming up. */
+    private static final double JUMP_VELOCITY = 0.42;
+    private static final double WATER_RISE = 0.1;
     private static final int STUCK_CHECK_TICKS = 10;
     private static final double STUCK_DISTANCE = 0.08;
     private static final double DIRECT_CHECK_MAX_DISTANCE = 40.0;
@@ -61,6 +67,12 @@ public final class NpcController {
     private double checkZ;
     private long checkTick;
     private int stuckChecks;
+
+    // Fall tracking: Citizens bodies never accumulate fall distance, so it is measured here from the highest point.
+    private boolean airborne;
+    private double peakY;
+    private double fallDistance;
+    private long cushionUntil;
 
     public NpcController(NpcWarsPlugin plugin, Npc npc) {
         this.plugin = plugin;
@@ -109,9 +121,9 @@ public final class NpcController {
         swimming = false;
         jumpRequested = false;
         autoFace = true;
-        Mannequin body = npc.entity();
-        if (body != null && body.isValid()) {
-            body.setJumping(false);
+        Player body = npc.entity();
+        if (body != null && body.isValid() && body.isSprinting()) {
+            body.setSprinting(false);
         }
         lastJump = false;
         appliedPose = null;
@@ -146,7 +158,7 @@ public final class NpcController {
 
     /** Immediately turns the NPC (and its head) to face a point. */
     public void face(Location point) {
-        Mannequin body = npc.entity();
+        Player body = npc.entity();
         if (body == null || !body.isValid()) {
             return;
         }
@@ -162,7 +174,7 @@ public final class NpcController {
 
     /** Sets an absolute yaw and pitch. */
     public void setLook(float yaw, float pitch) {
-        Mannequin body = npc.entity();
+        Player body = npc.entity();
         if (body != null && body.isValid()) {
             setRotation(body, body.getLocation(), yaw, pitch);
         }
@@ -171,6 +183,52 @@ public final class NpcController {
     /** Called when the NPC is hurt: pauses velocity writes briefly so knockback is not cancelled. */
     public void onHurt(long tick) {
         knockbackUntil = tick + plugin.settings().knockbackGraceTicks;
+    }
+
+    // ---------------------------------------------------------------- fall tracking
+
+    /** @return blocks fallen since the highest point of the current airtime (0 on the ground) */
+    public double fallDistance() {
+        return fallDistance;
+    }
+
+    public boolean isAirborne() {
+        return airborne;
+    }
+
+    /** Forgets the fall so far (a mace smash or a water landing ends it without damage). */
+    public void resetFall() {
+        fallDistance = 0;
+        Player body = npc.entity();
+        peakY = body == null ? 0 : body.getY();
+    }
+
+    /** The next landing within {@code ticks} does no fall damage (wind charge or water bucket). */
+    public void cushionLanding(int ticks) {
+        cushionUntil = plugin.currentTick() + ticks;
+        resetFall();
+    }
+
+    private void trackFall(Player body, boolean onGround, boolean inWater, long tick) {
+        double y = body.getY();
+        if (onGround || inWater) {
+            if (airborne && onGround && !inWater && tick >= cushionUntil && plugin.settings().fallDamage) {
+                double damage = DamageCalculator.fallDamage(peakY - y);
+                if (damage > 0) {
+                    body.damage(damage, DamageSource.builder(DamageType.FALL).build());
+                }
+            }
+            airborne = false;
+            fallDistance = 0;
+            peakY = y;
+            return;
+        }
+        if (!airborne) {
+            airborne = true;
+            peakY = y;
+        }
+        peakY = Math.max(peakY, y);
+        fallDistance = Math.max(0.0, peakY - y);
     }
 
     // ---------------------------------------------------------------- queries
@@ -208,8 +266,8 @@ public final class NpcController {
         if (desiredPose() != appliedPose) {
             return true;
         }
-        Mannequin body = npc.entity();
-        return body != null && body.isInWater();
+        Player body = npc.entity();
+        return body != null && (body.isInWater() || airborne || !isOnGround(body));
     }
 
     public String debugSummary() {
@@ -224,7 +282,7 @@ public final class NpcController {
 
     /** Applies the current intent. Called once per server tick for live NPCs. */
     public void tick(long tick) {
-        Mannequin body = npc.entity();
+        Player body = npc.entity();
         if (body == null || !body.isValid() || body.isDead()) {
             return;
         }
@@ -238,6 +296,7 @@ public final class NpcController {
         boolean wantJump = false;
         boolean inWater = body.isInWater();
         boolean onGround = isOnGround(body);
+        trackFall(body, onGround, inWater, tick);
 
         if (goal != null && !arrived) {
             if (goal.getWorld() != loc.getWorld()) {
@@ -292,20 +351,27 @@ public final class NpcController {
         if (inWater && (swimming || headSubmerged(body))) {
             wantJump = true;
         }
-        if (wantJump != lastJump) {
-            body.setJumping(wantJump);
-            lastJump = wantJump;
-        } else if (wantJump) {
-            body.setJumping(true);
-        }
+        lastJump = wantJump;
 
-        if (wantMove && gait == Gait.SPRINT && !sneaking && !swimming) {
+        boolean sprinting = wantMove && gait == Gait.SPRINT && !sneaking && !swimming;
+        if (sprinting) {
             lastSprintTick = tick;
         }
-        if (wantMove && tick >= knockbackUntil) {
-            double speed = currentSpeed(inWater);
+        if (body.isSprinting() != sprinting) {
+            body.setSprinting(sprinting);
+        }
+        if (tick >= knockbackUntil && (wantMove || wantJump)) {
             Vector current = body.getVelocity();
-            body.setVelocity(new Vector(dx * speed, current.getY(), dz * speed));
+            double vy = current.getY();
+            if (wantJump) {
+                if (inWater) {
+                    vy = Math.max(vy, WATER_RISE);
+                } else if (onGround) {
+                    vy = JUMP_VELOCITY;
+                }
+            }
+            double speed = wantMove ? currentSpeed(inWater) : 0.0;
+            body.setVelocity(new Vector(wantMove ? dx * speed : current.getX(), vy, wantMove ? dz * speed : current.getZ()));
         }
         if (wantMove && autoFace) {
             float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
@@ -399,7 +465,7 @@ public final class NpcController {
                 && Terrain.isPassable(terrain.type(hx, by + 2, hz));
     }
 
-    private boolean headSubmerged(Mannequin body) {
+    private boolean headSubmerged(Player body) {
         Location eye = body.getEyeLocation();
         Terrain terrain = plugin.paths().terrain(eye.getWorld());
         return terrain.type(eye.getBlockX(), eye.getBlockY(), eye.getBlockZ()) == Terrain.WATER;
@@ -419,7 +485,7 @@ public final class NpcController {
     }
 
     private void applyPose() {
-        Mannequin body = npc.entity();
+        Player body = npc.entity();
         if (body == null || !body.isValid()) {
             return;
         }
@@ -427,8 +493,8 @@ public final class NpcController {
         if (desired == appliedPose) {
             return;
         }
-        // A fixed pose stays until changed; standing is released so the server picks the natural pose again.
-        body.setPose(desired, desired != Pose.STANDING);
+        body.setSneaking(desired == Pose.SNEAKING);
+        body.setSwimming(desired == Pose.SWIMMING);
         appliedPose = desired;
     }
 
@@ -437,7 +503,7 @@ public final class NpcController {
     }
 
     /** Turns the body; skips the call when it already faces that way (compared with its real rotation). */
-    private static void setRotation(Mannequin body, Location current, float yaw, float pitch) {
+    private static void setRotation(Player body, Location current, float yaw, float pitch) {
         if (Math.abs(wrap(yaw - current.getYaw())) < 0.05f && Math.abs(pitch - current.getPitch()) < 0.05f) {
             return;
         }
@@ -487,7 +553,7 @@ public final class NpcController {
     }
 
     @SuppressWarnings("deprecation")
-    private static boolean isOnGround(Mannequin body) {
+    private static boolean isOnGround(Player body) {
         return body.isOnGround();
     }
 }

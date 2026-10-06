@@ -14,7 +14,7 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
 /**
- * {@code /npc team ...}. Team numbers are positive integers, teams are created the first time they are used, and a
+ * {@code /npcwars team ...}. Team numbers are positive integers, teams are created the first time they are used, and a
  * team's optional name is only ever printed by these admin commands.
  */
 final class TeamCommands {

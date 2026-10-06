@@ -63,7 +63,7 @@ public final class SubCommandRouter {
             }
             command.executor().run(inner);
         } catch (CommandException ex) {
-            ctx.plugin().messages().send(ctx.sender(), ex.messageKey(), ex.resolvers());
+            ctx.plugin().messages().sendAlways(ctx.sender(), ex.messageKey(), ex.resolvers());
         }
     }
 

@@ -11,7 +11,7 @@ import com.npcwars.util.Completions;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.bukkit.entity.Mannequin;
+import org.bukkit.entity.Player;
 
 /**
  * {@code swing} plays the arm animation; {@code attack} also hurts whatever enemy stands in reach in front of the
@@ -106,7 +106,7 @@ public final class SwingAction implements NpcAction {
             if (elapsedTicks % interval != 0) {
                 return true;
             }
-            Mannequin body = npc.entity();
+            Player body = npc.entity();
             if (body == null) {
                 return false;
             }

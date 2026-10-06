@@ -46,9 +46,9 @@ public final class MassActionCommand implements TabExecutor {
         try {
             run(sender, label, List.of(args));
         } catch (CommandException ex) {
-            messages.send(sender, ex.messageKey(), ex.resolvers());
+            messages.sendAlways(sender, ex.messageKey(), ex.resolvers());
         } catch (ActionException ex) {
-            messages.send(sender, ex.messageKey(), ex.resolvers());
+            messages.sendAlways(sender, ex.messageKey(), ex.resolvers());
         }
         return true;
     }

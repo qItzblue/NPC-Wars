@@ -61,6 +61,33 @@ public final class DamageCalculator {
         return level <= 0 ? 0.0 : 0.5 * level + 0.5;
     }
 
+    /**
+     * Extra damage of a mace smash for a fall of {@code fall} blocks, as in the game: nothing up to 1.5 blocks, then 4 per
+     * block for the first 3, 2 per block up to 8, and 1 per block beyond.
+     */
+    public static double maceBonus(double fall) {
+        if (fall <= 1.5) {
+            return 0.0;
+        }
+        if (fall <= 3.0) {
+            return 4.0 * fall;
+        }
+        if (fall <= 8.0) {
+            return 12.0 + 2.0 * (fall - 3.0);
+        }
+        return 22.0 + (fall - 8.0);
+    }
+
+    /** Extra mace damage from the Density enchantment: half a point per level per block fallen. */
+    public static double densityBonus(int level, double fall) {
+        return level <= 0 || fall <= 1.5 ? 0.0 : 0.5 * level * fall;
+    }
+
+    /** Fall damage in health points: one per block beyond the first three. */
+    public static double fallDamage(double fall) {
+        return Math.max(0.0, Math.ceil(fall - 3.0));
+    }
+
     /** Damage after a critical hit. */
     public static double critical(double damage) {
         return damage * CRITICAL_MULTIPLIER;

@@ -20,7 +20,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
 /**
- * {@code /npc path ...}: build a route out of waypoints, send NPCs along it, and optionally start the fight once
+ * {@code /npcwars path ...}: build a route out of waypoints, send NPCs along it, and optionally start the fight once
  * everyone has reached the end.
  */
 final class RouteCommands {
@@ -43,7 +43,7 @@ final class RouteCommands {
 
     private static SubCommand create() {
         return SubCommand.of("create", "npcplugin.route", "create <name>",
-                "Create an empty route in your world (add waypoints with /npc path add)", ctx -> {
+                "Create an empty route in your world (add waypoints with /npcwars path add)", ctx -> {
                     String name = ctx.arg(0);
                     if (!RouteManager.validName(name)) {
                         throw new CommandException("route.invalid-name", Messages.var("input", name));

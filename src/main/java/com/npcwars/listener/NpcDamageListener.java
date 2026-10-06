@@ -54,6 +54,12 @@ public final class NpcDamageListener implements Listener {
             return;
         }
         victim.controller().onHurt(plugin.currentTick());
+        if (plugin.messages().debug()) {
+            String by = event instanceof EntityDamageByEntityEvent hit ? " from " + describe(hit.getDamager()) : "";
+            plugin.getLogger().info(String.format(java.util.Locale.ROOT, "[combat] NPC #%d takes %.1f damage (%s%s), health %.1f",
+                    victim.id(), event.getFinalDamage(), event.getCause(), by,
+                    Math.max(0, victim.entity().getHealth() - event.getFinalDamage())));
+        }
         if (event instanceof EntityDamageByEntityEvent byEntity) {
             plugin.fights().onNpcDamaged(victim, shooterOrDamager(byEntity.getDamager()));
         }
@@ -65,6 +71,19 @@ public final class NpcDamageListener implements Listener {
         if (plugin.npcs().byEntity(event.getEntity()) != null) {
             event.setCancelled(true);
         }
+    }
+
+    private String describe(Entity damager) {
+        Npc npc = plugin.npcs().byEntity(damager);
+        if (npc != null) {
+            return "NPC #" + npc.id();
+        }
+        if (damager instanceof Projectile projectile) {
+            Entity shooter = projectile.getShooter() instanceof Entity e ? e : null;
+            Npc owner = shooter == null ? null : plugin.npcs().byEntity(shooter);
+            return projectile.getType().name().toLowerCase(java.util.Locale.ROOT) + (owner != null ? " of NPC #" + owner.id() : "");
+        }
+        return damager.getName();
     }
 
     private static Entity shooterOrDamager(Entity damager) {

@@ -14,7 +14,7 @@ import java.util.Set;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 
-/** {@code /npc deps} (download Citizens / EssentialsX) and {@code /npc import citizens}. */
+/** {@code /npcwars deps} (download Citizens / EssentialsX) and {@code /npcwars import citizens}. */
 final class IntegrationCommands {
 
     private IntegrationCommands() {

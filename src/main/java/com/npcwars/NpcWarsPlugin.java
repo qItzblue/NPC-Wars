@@ -42,7 +42,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
 
 /**
- * NPC-Wars: equippable player-like NPCs (Paper {@code Mannequin} entities) with kits, mass actions, numbered teams and
+ * NPC-Wars: equippable player NPCs (Citizens bodies) with kits, mass actions, numbered teams and
  * team-versus-team fights.
  * <p>
  * Everything runs on the main thread from a single one-tick loop ({@link #tickLoop()}); the only asynchronous work is
@@ -66,6 +66,8 @@ public final class NpcWarsPlugin extends JavaPlugin {
     private FightManager fights;
     private Pools pools;
     private LifeAi life;
+    private final PlacedBlocks placed = new PlacedBlocks();
+    private final java.util.Set<java.util.UUID> explosives = new java.util.HashSet<>();
     private RouteManager routes;
     private RouteRunner routeRunner;
     private DependencyInstaller dependencies;
@@ -75,13 +77,13 @@ public final class NpcWarsPlugin extends JavaPlugin {
 
     @Override
     public void onEnable() {
-        if (!mannequinSupported()) {
-            getLogger().severe("This server has no Mannequin entity. NPC-Wars needs Paper 1.21.9 or newer; disabling.");
+        saveDefaultConfig();
+        settings = new Settings(this);
+        dependencies = new DependencyInstaller(this);
+        if (!citizensReady()) {
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
-        saveDefaultConfig();
-        settings = new Settings(this);
         messages = new Messages(this);
         data = new DataStore(this);
         teams = new TeamManager();
@@ -96,7 +98,6 @@ public final class NpcWarsPlugin extends JavaPlugin {
         kits = new KitRegistry(this);
         kitApplier = new KitApplier(this);
         fights = new FightManager(this);
-        dependencies = new DependencyInstaller(this);
         life = new LifeAi(this);
         routes = new RouteManager();
         routeRunner = new RouteRunner(this);
@@ -130,6 +131,7 @@ public final class NpcWarsPlugin extends JavaPlugin {
         if (routeRunner != null) {
             routeRunner.cancelAll();
         }
+        placed.restoreAll();
         for (Player player : new ArrayList<>(Bukkit.getOnlinePlayers())) {
             if (player.getOpenInventory().getTopInventory().getHolder(false) instanceof BaseGui) {
                 player.closeInventory();
@@ -167,7 +169,7 @@ public final class NpcWarsPlugin extends JavaPlugin {
                     case INSTALLED -> getLogger().warning("Downloaded " + outcome.source().pluginName() + " ("
                             + outcome.detail() + "). Restart the server to load it."
                             + ("Citizens".equals(outcome.source().pluginName())
-                                    ? " Citizens also uses /npc, so use /npcwars for NPC-Wars." : ""));
+                                    ? " Citizens also uses /npcwars, so use /npcwars for NPC-Wars." : ""));
                     case UNAVAILABLE -> getLogger().info("Could not auto-download " + outcome.source().pluginName()
                             + ": " + outcome.detail());
                     case FAILED -> getLogger().warning("Could not auto-download " + outcome.source().pluginName()
@@ -212,6 +214,16 @@ public final class NpcWarsPlugin extends JavaPlugin {
 
     public RouteRunner routeRunner() {
         return routeRunner;
+    }
+
+    /** Temporary blocks NPCs placed in fights; they are removed again, and all restored on shutdown. */
+    public PlacedBlocks placed() {
+        return placed;
+    }
+
+    /** Entities (TNT, end crystals) lit by NPCs, so their explosions can be kept from breaking blocks. */
+    public java.util.Set<java.util.UUID> explosives() {
+        return explosives;
     }
 
     public LifeAi life() {
@@ -276,18 +288,45 @@ public final class NpcWarsPlugin extends JavaPlugin {
 
     // ---------------------------------------------------------------- internals
 
-    private static boolean mannequinSupported() {
-        try {
-            Class.forName("org.bukkit.entity.Mannequin");
+    /**
+     * NPC bodies are Citizens player NPCs, so Citizens has to be running. If it is not installed it is downloaded once
+     * (when {@code auto-download} allows) and the server needs a restart; if it is installed but did not start, the most
+     * likely cause is a build that does not support this Minecraft version.
+     */
+    private boolean citizensReady() {
+        org.bukkit.plugin.Plugin citizens = getServer().getPluginManager().getPlugin("Citizens");
+        if (citizens != null && citizens.isEnabled()) {
             return true;
-        } catch (ClassNotFoundException ex) {
+        }
+        if (citizens != null) {
+            getLogger().severe("Citizens is installed but did not start. NPC-Wars is built for Citizens "
+                    + com.npcwars.dependency.CitizensSource.VERSION + " (build " + com.npcwars.dependency.CitizensSource.BUILD
+                    + "); a newer Citizens build only supports the newest Minecraft version. Check Citizens' own error above.");
             return false;
         }
+        getLogger().severe("NPC-Wars needs the Citizens plugin for its NPC bodies, and it is not installed.");
+        PluginSource source = dependencies.source("citizens");
+        if (settings.autoDownloadEnabled && settings.autoDownloadPlugins.contains("citizens") && source != null) {
+            for (DependencyInstaller.Outcome outcome : dependencies.installBlocking(List.of(source))) {
+                if (outcome.status() == DependencyInstaller.Status.INSTALLED) {
+                    getLogger().severe("Downloaded " + outcome.detail() + " into the plugins folder. Restart the server to start NPC-Wars.");
+                } else {
+                    getLogger().severe("Could not download Citizens (" + outcome.status() + " " + outcome.detail()
+                            + "). Install Citizens " + com.npcwars.dependency.CitizensSource.VERSION + " build "
+                            + com.npcwars.dependency.CitizensSource.BUILD + " by hand.");
+                }
+            }
+        } else {
+            getLogger().severe("Install Citizens " + com.npcwars.dependency.CitizensSource.VERSION + " (build "
+                    + com.npcwars.dependency.CitizensSource.BUILD + ") or enable auto-download in config.yml.");
+        }
+        return false;
     }
 
     private void loadData() {
         YamlConfiguration yaml = data.load();
         npcs.load(yaml);
+        messages.setDebug(yaml.getBoolean("debug", false));
         TeamStorage.load(teams, yaml, getLogger());
         RouteStorage.load(routes, yaml, getLogger());
         // Forget team entries for NPCs that no longer exist (for example data.yml edited by hand).
@@ -303,6 +342,7 @@ public final class NpcWarsPlugin extends JavaPlugin {
     private YamlConfiguration snapshot() {
         YamlConfiguration yaml = new YamlConfiguration();
         yaml.set("version", 1);
+        yaml.set("debug", messages.debug());
         npcs.save(yaml);
         TeamStorage.save(teams, yaml);
         RouteStorage.save(routes, yaml);
@@ -315,10 +355,11 @@ public final class NpcWarsPlugin extends JavaPlugin {
         manager.registerEvents(new NpcDamageListener(this), this);
         manager.registerEvents(new NpcLifecycleListener(this), this);
         manager.registerEvents(new GuiListener(), this);
+        manager.registerEvents(new com.npcwars.listener.CombatItemListener(this), this);
     }
 
     private void registerCommands() {
-        bind("npc", new NpcCommand(this));
+        bind("npcwars", new NpcCommand(this));
         bind("kitall", new KitAllCommand(this));
         bind("massaction", new MassActionCommand(this));
     }
@@ -341,6 +382,7 @@ public final class NpcWarsPlugin extends JavaPlugin {
         stage("mass actions", () -> runner.tick(tick));
         stage("routes", () -> routeRunner.tick(tick));
         stage("fight manager", () -> fights.tick(tick));
+        stage("placed blocks", () -> placed.tick(tick));
         stage("life AI", () -> life.tick(tick));
         stage("NPC movement", () -> npcs.tickControllers(tick));
         stage("NPC maintenance", () -> npcs.maintenance(tick));

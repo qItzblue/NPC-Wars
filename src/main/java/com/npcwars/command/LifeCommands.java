@@ -7,7 +7,7 @@ import com.npcwars.util.Completions;
 import java.util.ArrayList;
 import java.util.List;
 
-/** {@code /npc life}: switch NPCs between standing still and living like SMP players. */
+/** {@code /npcwars life}: switch NPCs between standing still and living like SMP players. */
 final class LifeCommands {
 
     private LifeCommands() {

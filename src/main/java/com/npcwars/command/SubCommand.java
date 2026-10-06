@@ -3,7 +3,7 @@ package com.npcwars.command;
 import java.util.List;
 
 /**
- * One sub-command of {@code /npc} (or of a nested group such as {@code /npc team}). Instances are built with the
+ * One sub-command of {@code /npcwars} (or of a nested group such as {@code /npcwars team}). Instances are built with the
  * fluent {@link #of} factory so each command stays a few lines of lambdas.
  */
 public final class SubCommand {

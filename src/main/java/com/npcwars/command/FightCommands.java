@@ -6,7 +6,7 @@ import com.npcwars.util.Completions;
 import com.npcwars.util.TimeParser;
 import java.util.List;
 
-/** {@code /npc fight}, {@code /npc timefight <time>} and {@code /npc stopfight}. */
+/** {@code /npcwars fight}, {@code /npcwars timefight <time>} and {@code /npcwars stopfight}. */
 final class FightCommands {
 
     private static final long MAX_DELAY_SECONDS = 30L * 86_400L;

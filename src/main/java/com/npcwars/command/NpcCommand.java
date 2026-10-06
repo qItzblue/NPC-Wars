@@ -6,7 +6,7 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabExecutor;
 
-/** The {@code /npc} root command: wires every sub-command group into one {@link SubCommandRouter}. */
+/** The {@code /npcwars} root command: wires every sub-command group into one {@link SubCommandRouter}. */
 public final class NpcCommand implements TabExecutor {
 
     private final NpcWarsPlugin plugin;

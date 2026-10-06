@@ -151,7 +151,7 @@ public final class EquipmentGui extends BaseGui {
             }
             case "clear" -> {
                 npc.clearEquipment();
-                plugin.npcs().applyEquipment(npc);
+                plugin.npcs().applyInventory(npc);
                 plugin.data().requestSave();
                 refresh();
             }
@@ -174,7 +174,7 @@ public final class EquipmentGui extends BaseGui {
                     if (player.getInventory().addItem(current).isEmpty()) {
                         setSlot(slot, null);
                     } else {
-                        plugin.messages().send(player, "gui.equipment.inventory-full");
+                        plugin.messages().sendAlways(player, "gui.equipment.inventory-full");
                     }
                 }
             }
@@ -187,7 +187,7 @@ public final class EquipmentGui extends BaseGui {
                     return;
                 }
                 if (!slot.accepts(cursor)) {
-                    plugin.messages().send(player, "gui.equipment.wrong-slot");
+                    plugin.messages().sendAlways(player, "gui.equipment.wrong-slot");
                     return;
                 }
                 ItemStack placed = cursor.clone();
@@ -202,7 +202,7 @@ public final class EquipmentGui extends BaseGui {
                     setSlot(slot, placed);
                     player.setItemOnCursor(reduced(cursor));
                 } else {
-                    plugin.messages().send(player, "gui.equipment.inventory-full");
+                    plugin.messages().sendAlways(player, "gui.equipment.inventory-full");
                 }
             }
             case NUMBER_KEY -> {
@@ -220,7 +220,7 @@ public final class EquipmentGui extends BaseGui {
                     return;
                 }
                 if (!slot.accepts(held)) {
-                    plugin.messages().send(player, "gui.equipment.wrong-slot");
+                    plugin.messages().sendAlways(player, "gui.equipment.wrong-slot");
                     return;
                 }
                 ItemStack placed = held.clone();
@@ -232,7 +232,7 @@ public final class EquipmentGui extends BaseGui {
                     setSlot(slot, placed);
                     player.getInventory().setItem(hotbar, current);
                 } else {
-                    plugin.messages().send(player, "gui.equipment.inventory-full");
+                    plugin.messages().sendAlways(player, "gui.equipment.inventory-full");
                 }
             }
             default -> { }
@@ -248,7 +248,7 @@ public final class EquipmentGui extends BaseGui {
         }
         NpcSlot slot = NpcSlot.preferredFor(clicked);
         if (npc.equipment(slot) != null) {
-            plugin.messages().send(player, "gui.equipment.slot-occupied");
+            plugin.messages().sendAlways(player, "gui.equipment.slot-occupied");
             return;
         }
         ItemStack placed = clicked.clone();

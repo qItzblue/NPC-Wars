@@ -15,7 +15,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
 
 /**
  * The name and skin pools behind random NPC appearance, stored in {@code plugins/NPC-Wars/pools.yml} so they can be
- * edited by hand or with {@code /npc pool}. Skins are Minecraft player names (the server fetches the skin by name).
+ * edited by hand or with {@code /npcwars pool}. Skins are Minecraft player names (the server fetches the skin by name).
  */
 public final class Pools {
 
@@ -119,7 +119,7 @@ public final class Pools {
 
     private void save() {
         YamlConfiguration yaml = new YamlConfiguration();
-        yaml.options().setHeader(List.of("Pools used for random NPC names and skins (edit by hand or with /npc pool).",
+        yaml.options().setHeader(List.of("Pools used for random NPC names and skins (edit by hand or with /npcwars pool).",
                 "Skins are Minecraft player names; the server downloads the skin of that account."));
         yaml.set("names", names);
         yaml.set("skins", skins);

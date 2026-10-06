@@ -29,6 +29,7 @@ public final class Messages {
     private final Map<String, List<String>> lists = new HashMap<>();
     private final Set<String> reportedMissing = new HashSet<>();
     private String prefix = "";
+    private boolean debug;
 
     public Messages(NpcWarsPlugin plugin) {
         this.plugin = plugin;
@@ -108,14 +109,48 @@ public final class Messages {
         return out;
     }
 
+    /** @return {@code true} if feedback and announcements are shown (switched with {@code /npcwars debug on|off}) */
+    public boolean debug() {
+        return debug;
+    }
+
+    public void setDebug(boolean debug) {
+        this.debug = debug;
+    }
+
+    /**
+     * Whether a message is shown even when debug is off. Everything the plugin says by itself, such as "NPC spawned",
+     * "fight started" or "team 2 wins", stays quiet by default. What stays: errors and usage hints, the answers to
+     * questions (list, info, status, help) and the download results.
+     */
+    public static boolean alwaysShown(String key) {
+        if (key.equals("general.reloaded") || key.equals("general.saved")) {
+            return false;
+        }
+        if (key.startsWith("general.") || key.startsWith("help.") || key.startsWith("status.")
+                || key.startsWith("deps.") || key.startsWith("debug.")) {
+            return true;
+        }
+        String last = key.substring(key.lastIndexOf('.') + 1);
+        return last.contains("list") || last.startsWith("info") || last.startsWith("status");
+    }
+
+    /** Sends feedback: shown only when debug is on, unless the message is an answer or an error (see {@link #alwaysShown}). */
     public void send(CommandSender target, String key, TagResolver... resolvers) {
+        if (debug || alwaysShown(key)) {
+            target.sendMessage(render(key, resolvers));
+        }
+    }
+
+    /** Sends an error or a required answer, whatever the debug setting. */
+    public void sendAlways(CommandSender target, String key, TagResolver... resolvers) {
         target.sendMessage(render(key, resolvers));
     }
 
-    /** Sends a message to every online player allowed by {@code fight.announce}, plus the console. */
+    /** Sends a broadcast to every online player allowed by {@code fight.announce}, plus the console (debug only). */
     public void announce(String key, TagResolver... resolvers) {
         Settings.Announce scope = plugin.settings().announce;
-        if (scope == Settings.Announce.NONE) {
+        if (!debug || scope == Settings.Announce.NONE) {
             return;
         }
         Component message = render(key, resolvers);
@@ -129,6 +164,9 @@ public final class Messages {
 
     /** Sends a message to the console and to online players who may run fights or get notifications. */
     public void notifyStaff(String key, TagResolver... resolvers) {
+        if (!debug) {
+            return;
+        }
         Component message = render(key, resolvers);
         Bukkit.getConsoleSender().sendMessage(message);
         for (org.bukkit.entity.Player player : Bukkit.getOnlinePlayers()) {

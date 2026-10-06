@@ -111,12 +111,12 @@ public final class KitMenu extends BaseGui {
         Messages messages = plugin.messages();
         List<Npc> targets = scope.resolve(plugin, player);
         if (targets.isEmpty()) {
-            messages.send(player, "kits.no-targets", Messages.var("scope", scope.describe()));
+            messages.sendAlways(player, "kits.no-targets", Messages.var("scope", scope.describe()));
             return;
         }
         List<ItemStack> items = plugin.kits().itemsOf(kit, player);
         if (items.isEmpty()) {
-            messages.send(player, "kits.empty-kit", Messages.var("kit", kit.id()), Messages.var("provider", plugin.kits().providerName(kit)));
+            messages.sendAlways(player, "kits.empty-kit", Messages.var("kit", kit.id()), Messages.var("provider", plugin.kits().providerName(kit)));
             return;
         }
         int changed = plugin.kitApplier().apply(targets, items);

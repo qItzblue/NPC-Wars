@@ -13,7 +13,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 
-/** {@code /npc kit create|delete|list|providers}: manage the built-in kits and inspect all kit sources. */
+/** {@code /npcwars kit create|delete|list|providers}: manage the built-in kits and inspect all kit sources. */
 final class KitCommands {
 
     private KitCommands() {

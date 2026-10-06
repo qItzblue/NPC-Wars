@@ -16,7 +16,7 @@ import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 
-/** {@code /npc} sub-commands that create, find, move and style NPCs. */
+/** {@code /npcwars} sub-commands that create, find, move and style NPCs. */
 final class NpcManagementCommands {
 
     private static final Pattern SKIN_NAME = Pattern.compile("[A-Za-z0-9_]{1,16}");
@@ -41,7 +41,9 @@ final class NpcManagementCommands {
                 .register(skin())
                 .register(rename())
                 .register(equip())
-                .register(heal());
+                .register(heal())
+                .register(give())
+                .register(move());
     }
 
     // ---------------------------------------------------------------- spawning
@@ -316,6 +318,79 @@ final class NpcManagementCommands {
             targets.forEach(npc -> ctx.plugin().npcs().heal(npc));
             ctx.send("npc.healed-many", Messages.var("count", targets.size()));
         }).minArgs(1).complete(ctx -> Completions.filter(Targets.npcSuggestions(ctx), ctx.last()));
+    }
+
+    private static SubCommand move() {
+        return SubCommand.of("move", "npcplugin.npc", "move <id|ids|selected|all|team:<n>> <x> <y> <z> [world]",
+                "Teleport NPCs to coordinates and make that their new home (works from the console)", ctx -> {
+                    List<Npc> targets = Targets.manyOf(ctx, List.of(ctx.arg(0)));
+                    double[] xyz = new double[3];
+                    for (int i = 0; i < 3; i++) {
+                        try {
+                            xyz[i] = Double.parseDouble(ctx.arg(i + 1));
+                            if (!Double.isFinite(xyz[i])) {
+                                throw new NumberFormatException();
+                            }
+                        } catch (NumberFormatException ex) {
+                            throw new CommandException("route.invalid-coordinate", Messages.var("input", ctx.arg(i + 1)));
+                        }
+                    }
+                    World world = ctx.size() > 4 ? Bukkit.getWorld(ctx.arg(4))
+                            : ctx.sender() instanceof Player player ? player.getWorld() : Bukkit.getWorlds().get(0);
+                    if (world == null) {
+                        throw new CommandException("route.world-unknown", Messages.var("input", ctx.arg(4)));
+                    }
+                    for (Npc npc : targets) {
+                        ctx.plugin().npcs().teleport(npc, new Location(world, xyz[0], xyz[1], xyz[2], npc.yaw(), npc.pitch()));
+                    }
+                    ctx.send("npc.moved", Messages.var("count", targets.size()));
+                }).minArgs(4).complete(ctx -> ctx.size() == 1 ? Completions.filter(Targets.npcSuggestions(ctx), ctx.last()) : List.of());
+    }
+
+    private static SubCommand give() {
+        return SubCommand.of("give", "npcplugin.npc", "give <id|ids|selected|all|team:<n>> <ITEM[ amount][ enchant:level]>...",
+                "Put items into NPC inventories (they use them in fights); \"give <targets> clear\" empties them", ctx -> {
+                    // The item is everything after the target token, e.g. "give 3 netherite_sword sharpness:3" or
+                    // "give all wind_charge 16".
+                    List<Npc> targets = Targets.manyOf(ctx, List.of(ctx.arg(0)));
+                    if (ctx.size() == 2 && ctx.arg(1).equalsIgnoreCase("clear")) {
+                        for (Npc npc : targets) {
+                            npc.clearEquipment();
+                            ctx.plugin().npcs().applyInventory(npc);
+                        }
+                        ctx.plugin().data().requestSave();
+                        ctx.send("npc.cleared", Messages.var("count", targets.size()));
+                        return;
+                    }
+                    String line = String.join(" ", ctx.args().subList(1, ctx.size()));
+                    org.bukkit.inventory.ItemStack item;
+                    try {
+                        item = com.npcwars.kit.ItemParser.parse(line);
+                    } catch (IllegalArgumentException ex) {
+                        throw new CommandException("npc.invalid-item", Messages.var("input", line), Messages.var("reason", ex.getMessage()));
+                    }
+                    int full = 0;
+                    for (Npc npc : targets) {
+                        if (!ctx.plugin().npcs().giveItem(npc, item)) {
+                            full++;
+                        }
+                    }
+                    ctx.send("npc.gave", Messages.var("count", targets.size() - full), Messages.var("full", full));
+                }).minArgs(2).complete(ctx -> {
+                    if (ctx.size() == 1) {
+                        return Completions.filter(Targets.npcSuggestions(ctx), ctx.last());
+                    }
+                    if (ctx.size() == 2) {
+                        List<String> names = new ArrayList<>(List.of("clear"));
+                        for (org.bukkit.Material material : org.bukkit.Material.values()) {
+                            if (material.isItem() && !material.name().startsWith("LEGACY_")) {
+                                names.add(material.name().toLowerCase(Locale.ROOT));
+                            }
+                        }
+                        return Completions.filter(names, ctx.last());
+                    }
+                    return List.of();
+                });
     }
 
     // ---------------------------------------------------------------- helpers
