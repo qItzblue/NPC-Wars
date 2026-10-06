@@ -80,6 +80,15 @@ public final class Settings {
     public int hesitateMinTicks;
     public int hesitateMaxTicks;
     public int attackJitterTicks;
+    public int reactionMinTicks;
+    public int reactionMaxTicks;
+    public int tacticPauseMinTicks;
+    public int tacticPauseMaxTicks;
+    public double approachPauseChance;
+    public int approachPauseMinTicks;
+    public int approachPauseMaxTicks;
+    public int routePauseMinTicks;
+    public int routePauseMaxTicks;
     public boolean restoreLoadout;
 
     // massaction
@@ -204,6 +213,15 @@ public final class Settings {
         hesitateMinTicks = Math.max(0, c.getInt("fight.hesitate-min-ticks", 4));
         hesitateMaxTicks = Math.max(hesitateMinTicks, c.getInt("fight.hesitate-max-ticks", 14));
         attackJitterTicks = Math.max(0, c.getInt("fight.attack-jitter-ticks", 2));
+        reactionMinTicks = Math.max(0, c.getInt("fight.reaction-min-ticks", 8));
+        reactionMaxTicks = Math.max(reactionMinTicks, c.getInt("fight.reaction-max-ticks", 24));
+        tacticPauseMinTicks = Math.max(0, c.getInt("fight.tactic-pause-min-ticks", 6));
+        tacticPauseMaxTicks = Math.max(tacticPauseMinTicks, c.getInt("fight.tactic-pause-max-ticks", 18));
+        approachPauseChance = clamp(c.getDouble("fight.approach-pause-chance", 0.012), 0.0, 1.0);
+        approachPauseMinTicks = Math.max(0, c.getInt("fight.approach-pause-min-ticks", 6));
+        approachPauseMaxTicks = Math.max(approachPauseMinTicks, c.getInt("fight.approach-pause-max-ticks", 18));
+        routePauseMinTicks = Math.max(0, c.getInt("routes.pause-min-ticks", 10));
+        routePauseMaxTicks = Math.max(routePauseMinTicks, c.getInt("routes.pause-max-ticks", 50));
         restoreLoadout = c.getBoolean("fight.restore-loadout", true);
         List<Integer> marks = new ArrayList<>(c.getIntegerList("fight.countdown-marks"));
         marks.removeIf(mark -> mark <= 0);

@@ -53,6 +53,7 @@ public final class RouteRunner {
         int index;
         boolean commanded;
         long lastProgress;
+        long pausedUntil;
 
         Walker(Run run, double dx, double dz) {
             this.run = run;
@@ -175,6 +176,9 @@ public final class RouteRunner {
             Route route = walker.run.route;
             World world = npc.entity().getWorld();
             NpcController controller = npc.controller();
+            if (tick < walker.pausedUntil) {
+                continue;
+            }
             if (!walker.commanded) {
                 Route.Point point = route.points().get(walker.index);
                 controller.moveTo(new Location(world, point.x() + walker.dx, point.y(), point.z() + walker.dz),
@@ -195,6 +199,13 @@ public final class RouteRunner {
     private void advance(Npc npc, Walker walker) {
         walker.index++;
         walker.commanded = false;
+        var settings = plugin.settings();
+        if (settings.routePauseMaxTicks > 0 && walker.index < walker.run.route.size()) {
+            npc.controller().stop();
+            walker.pausedUntil = plugin.currentTick() + settings.routePauseMinTicks + java.util.concurrent.ThreadLocalRandom
+                    .current().nextInt(settings.routePauseMaxTicks - settings.routePauseMinTicks + 1);
+            walker.lastProgress = walker.pausedUntil;
+        }
         if (walker.index >= walker.run.route.size()) {
             npc.controller().stop();
             finish(npc.id(), walker);

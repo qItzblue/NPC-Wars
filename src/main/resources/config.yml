@@ -87,6 +87,17 @@ fight:
   hesitate-min-ticks: 4
   hesitate-max-ticks: 14
   attack-jitter-ticks: 2
+  # Pauses so NPCs do not act like machines (20 ticks = 1 second; set a max of 0 to turn one off).
+  # Reaction time when a fight starts or the NPC picks a new enemy: it stands and looks first.
+  reaction-min-ticks: 8
+  reaction-max-ticks: 24
+  # Pause after using an item (a pearl, eating, a wind charge...) before the next move.
+  tactic-pause-min-ticks: 6
+  tactic-pause-max-ticks: 18
+  # While running at an enemy: chance per tick to stop for a moment.
+  approach-pause-chance: 0.012
+  approach-pause-min-ticks: 6
+  approach-pause-max-ticks: 18
   # Put each NPC's saved inventory back when a fight starts and ends (food, pearls, charges used up are restored).
   restore-loadout: true
   require-line-of-sight: true
@@ -168,6 +179,9 @@ life:
 routes:
   # An NPC that cannot reach a waypoint within this time skips it, so a stuck NPC never blocks the sequence.
   waypoint-timeout-seconds: 30
+  # NPCs stop for a moment at each waypoint, like a player looking around (20 ticks = 1 second; max 0 turns it off).
+  pause-min-ticks: 10
+  pause-max-ticks: 50
 
 # Random names and skins. The pools live in pools.yml (edit it, or use /npcwars pool).
 appearance:

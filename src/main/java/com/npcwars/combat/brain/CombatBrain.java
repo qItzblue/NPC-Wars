@@ -41,6 +41,8 @@ public final class CombatBrain {
     private long nextEval;
     private long nextAttackTick;
     private long critWaitUntil;
+    private long pauseUntil;
+    private LivingEntity lastTarget;
 
     private LivingEntity sightTarget;
     private boolean hasSight;
@@ -170,6 +172,19 @@ public final class CombatBrain {
                 return;
             }
             endActive(c);
+            pause(now, settings.tacticPauseMinTicks, settings.tacticPauseMaxTicks);
+        }
+
+        if (target != lastTarget) {
+            lastTarget = target;
+            pause(now, settings.reactionMinTicks, settings.reactionMaxTicks);
+        }
+        if (now < pauseUntil) {
+            if (controller.isMoving()) {
+                controller.stop();
+            }
+            controller.face(target.getLocation().add(0, target.getHeight() * 0.6, 0));
+            return;
         }
 
         updateGuard(c);
@@ -181,6 +196,15 @@ public final class CombatBrain {
             }
         }
         melee(c);
+    }
+
+    /** A short moment of doing nothing but looking at the enemy, like a player who is thinking. */
+    private void pause(long now, int minTicks, int maxTicks) {
+        if (maxTicks <= 0) {
+            return;
+        }
+        int ticks = minTicks + ThreadLocalRandom.current().nextInt(Math.max(0, maxTicks - minTicks) + 1);
+        pauseUntil = Math.max(pauseUntil, now + ticks);
     }
 
     private void chooseTactic(CombatContext c) {
@@ -351,6 +375,11 @@ public final class CombatBrain {
         // Out of reach, or "in reach" but behind a wall, fence or glass pane: keep closing in (around the obstacle).
         double distance = c.body.getLocation().distance(c.target.getLocation());
         NpcController.Gait gait = distance > settings.sprintDistance ? NpcController.Gait.SPRINT : NpcController.Gait.WALK;
+        if (!inReach && settings.approachPauseChance > 0 && controller.isMoving()
+                && ThreadLocalRandom.current().nextDouble() < settings.approachPauseChance) {
+            pause(c.now, settings.approachPauseMinTicks, settings.approachPauseMaxTicks);
+            return;
+        }
         double arrive = inReach ? 0.5 : Math.max(0.8, settings.attackReach - 0.8);
         controller.moveTo(c.target.getLocation(), gait, arrive);
     }

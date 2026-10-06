@@ -141,7 +141,9 @@ plugin, implement `KitProvider` and call `plugin.kits().register(...)`.
   the NPCs just stop at the end and you start the fight yourself with `/npcwars fight` or `/npcwars timefight`. An NPC that cannot
   reach a waypoint within `routes.waypoint-timeout-seconds` skips it, so the sequence always completes.
 - **Fighting feel:** most swings connect (`fight.hit-chance`), some miss, NPCs sometimes pause before the next swing
-  (`fight.hesitate-*`), the arm swings on every attempt, and an empty-handed NPC picks up `fight.default-weapon` when a
+  (`fight.hesitate-*`), they take a moment to react when a fight starts or they pick a new enemy
+  (`fight.reaction-*-ticks`), pause after using an item (`fight.tactic-pause-*-ticks`), stop briefly while running at an
+  enemy (`fight.approach-pause-*`) and stand a moment at each route waypoint (`routes.pause-*-ticks`), the arm swings on every attempt, and an empty-handed NPC picks up `fight.default-weapon` when a
   fight starts so it visibly holds something.
 
 ## Fighting with items
