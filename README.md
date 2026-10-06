@@ -233,3 +233,9 @@ src/main/java/com/npcwars/
   command/                 /npcwars (sub-command router), /kitall, /massaction
   listener/                interaction, damage rules, lifecycle (death, chunk and world load)
 ```
+
+
+## Marching and easier stick placing
+
+- **March:** a slow, steady pace (`movement.march-speed`, default 0.15 vs walk 0.215). Use it on the dupe stick (sneak + right-click cycles stand / walk / march, or `/npcwars stick then march`), on routes (`speed=march`) and in `/massaction move ... march`.
+- **Placing one copy:** in `single` mode no area is needed. Right-click a block or the ground and the copy stands there facing the way you face; aiming at the sky uses the ground under the end of your line of sight. Particles show where it was placed.

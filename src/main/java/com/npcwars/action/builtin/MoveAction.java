@@ -42,7 +42,7 @@ public final class MoveAction implements NpcAction {
 
     @Override
     public String usage() {
-        return "<me|x y z|home|random [radius]> [run|sneak]";
+        return "<me|x y z|home|random [radius]> [run|march|sneak]";
     }
 
     @Override
@@ -55,6 +55,7 @@ public final class MoveAction implements NpcAction {
             switch (arg.toLowerCase(Locale.ROOT)) {
                 case "run", "sprint" -> gait = NpcController.Gait.SPRINT;
                 case "sneak" -> gait = NpcController.Gait.SNEAK;
+                case "march" -> gait = NpcController.Gait.MARCH;
                 default -> { }
             }
         }

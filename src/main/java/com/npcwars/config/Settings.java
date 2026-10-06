@@ -36,6 +36,7 @@ public final class Settings {
 
     // movement
     public double walkSpeed;
+    public double marchSpeed;
     public double sprintSpeed;
     public double sneakSpeed;
     public double swimSpeed;
@@ -172,6 +173,7 @@ public final class Settings {
         idleRespawnDelayTicks = Math.max(0, c.getInt("npc.idle-respawn-delay-seconds", 3)) * 20;
 
         walkSpeed = clamp(c.getDouble("movement.walk-speed", 0.215), 0.01, 1.0);
+        marchSpeed = clamp(c.getDouble("movement.march-speed", 0.15), 0.01, 1.0);
         sprintSpeed = clamp(c.getDouble("movement.sprint-speed", 0.28), 0.01, 1.0);
         sneakSpeed = clamp(c.getDouble("movement.sneak-speed", 0.065), 0.01, 1.0);
         swimSpeed = clamp(c.getDouble("movement.swim-speed", 0.14), 0.01, 1.0);

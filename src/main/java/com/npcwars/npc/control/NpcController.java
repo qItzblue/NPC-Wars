@@ -25,7 +25,7 @@ import org.bukkit.util.Vector;
 public final class NpcController {
 
     /** How fast the NPC moves; {@link #SNEAK} and {@link #SPRINT} map to the speeds in config.yml. */
-    public enum Gait { SNEAK, WALK, SPRINT }
+    public enum Gait { SNEAK, MARCH, WALK, SPRINT }
 
     /** Upward velocity of a vanilla jump, and the steady rise while swimming up. */
     private static final double JUMP_VELOCITY = 0.42;
@@ -478,6 +478,8 @@ public final class NpcController {
             speed = settings.swimSpeed;
         } else if (sneaking || gait == Gait.SNEAK) {
             speed = settings.sneakSpeed;
+        } else if (gait == Gait.MARCH) {
+            speed = settings.marchSpeed;
         } else {
             speed = gait == Gait.SPRINT ? settings.sprintSpeed : settings.walkSpeed;
         }

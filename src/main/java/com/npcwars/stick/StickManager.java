@@ -46,13 +46,16 @@ public final class StickManager {
         }
     }
 
+    private record Walk(Vector direction, NpcController.Gait gait) {
+    }
+
     private final NpcWarsPlugin plugin;
     private final NamespacedKey stickKey;
     private final NamespacedKey modeKey;
     private final NamespacedKey behaviorKey;
     private final Map<UUID, Selection> selections = new HashMap<>();
     /** NPCs that are walking forward, with the direction they walk in. */
-    private final Map<Integer, Vector> walkers = new HashMap<>();
+    private final Map<Integer, Walk> walkers = new HashMap<>();
 
     public StickManager(NpcWarsPlugin plugin) {
         this.plugin = plugin;
@@ -103,11 +106,15 @@ public final class StickManager {
         lore.add(line("Area: ", area == null ? "not set" : area.sizeX() + " x " + area.sizeY() + " x " + area.sizeZ() + " blocks",
                 area == null ? NamedTextColor.RED : NamedTextColor.GREEN));
         lore.add(Component.empty());
-        lore.add(hint("Left-click a block: corner 1"));
-        lore.add(hint("Right-click a block: corner 2"));
-        lore.add(hint("Right-click in the air: use"));
+        if (mode == StickMode.SINGLE) {
+            lore.add(hint("Right-click a block or the ground: place a copy there"));
+        } else {
+            lore.add(hint("Left-click a block: corner 1"));
+            lore.add(hint("Right-click a block: corner 2"));
+            lore.add(hint("Right-click in the air: use"));
+        }
         lore.add(hint("Sneak + left-click: change mode"));
-        lore.add(hint("Sneak + right-click: stand / walk forward"));
+        lore.add(hint("Sneak + right-click: stand / walk / march"));
         meta.lore(lore);
         stick.setItemMeta(meta);
     }
@@ -193,7 +200,7 @@ public final class StickManager {
                 }
                 yield fill(player, area, behavior);
             }
-            case SINGLE -> single(player, area, behavior);
+            case SINGLE -> single(player, behavior);
         };
     }
 
@@ -239,24 +246,44 @@ public final class StickManager {
         return made;
     }
 
-    private int single(Player user, Area area, StickBehavior behavior) {
+    private int single(Player user, StickBehavior behavior) {
         double range = plugin.settings().stickRange;
         RayTraceResult hit = user.rayTraceBlocks(range);
         Location at;
         if (hit != null && hit.getHitBlock() != null) {
-            Block block = hit.getHitBlock().getRelative(hit.getHitBlockFace() == null ? org.bukkit.block.BlockFace.UP : hit.getHitBlockFace());
-            at = block.getLocation().add(0.5, 0.0, 0.5);
+            Block block = hit.getHitBlock();
+            // Stand on top of a block that was aimed at from above or the side; against a ceiling, stand below it.
+            org.bukkit.block.BlockFace face = hit.getHitBlockFace();
+            Block spot = face == null || face == org.bukkit.block.BlockFace.UP ? block.getRelative(org.bukkit.block.BlockFace.UP)
+                    : block.getRelative(face);
+            at = spot.getLocation().add(0.5, 0.0, 0.5);
         } else {
-            at = user.getLocation();
+            // Aiming at the sky or something far away: use the ground below the point at the end of the line of sight.
+            Vector far = user.getEyeLocation().toVector().add(user.getEyeLocation().getDirection().multiply(Math.min(range, 30.0)));
+            World world = user.getWorld();
+            int x = (int) Math.floor(far.getX());
+            int z = (int) Math.floor(far.getZ());
+            double y = Double.NaN;
+            if (world.isChunkLoaded(x >> 4, z >> 4)) {
+                for (int by = (int) Math.floor(far.getY()); by > Math.max(world.getMinHeight(), far.getY() - 16); by--) {
+                    Block block = world.getBlockAt(x, by, z);
+                    if (!block.isPassable() && world.getBlockAt(x, by + 1, z).isPassable() && world.getBlockAt(x, by + 2, z).isPassable()) {
+                        y = by + 1.0;
+                        break;
+                    }
+                }
+            }
+            if (Double.isNaN(y)) {
+                throw new StickException("stick.no-target");
+            }
+            at = new Location(world, x + 0.5, y, z + 0.5);
         }
         at.setYaw(user.getLocation().getYaw());
         at.setPitch(0f);
-        if (area != null && !area.contains(at.getX(), at.getY(), at.getZ())) {
-            throw new StickException("stick.outside");
-        }
         if (copy(user, at, behavior) == null) {
             throw new StickException("stick.limit", Messages.var("max", plugin.settings().maxNpcs), 0);
         }
+        user.spawnParticle(Particle.HAPPY_VILLAGER, at.clone().add(0, 1.0, 0), 8, 0.3, 0.5, 0.3, 0);
         return 1;
     }
 
@@ -315,8 +342,8 @@ public final class StickManager {
                 plugin.teams().addNpc(team, npc.id());
             }
         }
-        if (behavior == StickBehavior.WALK_FORWARD) {
-            startWalking(npc, at.getYaw());
+        if (behavior != StickBehavior.STAND) {
+            startWalking(npc, at.getYaw(), behavior == StickBehavior.MARCH ? NpcController.Gait.MARCH : NpcController.Gait.WALK);
         }
         plugin.data().requestSave();
         return npc;
@@ -324,11 +351,11 @@ public final class StickManager {
 
     // ---------------------------------------------------------------- walking forward
 
-    public void startWalking(Npc npc, float yaw) {
+    public void startWalking(Npc npc, float yaw, NpcController.Gait gait) {
         double radians = Math.toRadians(yaw);
         Vector direction = new Vector(-Math.sin(radians), 0, Math.cos(radians));
-        walkers.put(npc.id(), direction);
-        npc.controller().walkDirection(direction, NpcController.Gait.WALK);
+        walkers.put(npc.id(), new Walk(direction, gait));
+        npc.controller().walkDirection(direction, gait);
     }
 
     public boolean isWalking(Npc npc) {
@@ -351,13 +378,13 @@ public final class StickManager {
         if (walkers.isEmpty() || tick % 10 != 0) {
             return;
         }
-        for (Iterator<Map.Entry<Integer, Vector>> it = walkers.entrySet().iterator(); it.hasNext(); ) {
-            Map.Entry<Integer, Vector> entry = it.next();
+        for (Iterator<Map.Entry<Integer, Walk>> it = walkers.entrySet().iterator(); it.hasNext(); ) {
+            Map.Entry<Integer, Walk> entry = it.next();
             Npc npc = plugin.npcs().get(entry.getKey());
             if (npc == null) {
                 it.remove();
             } else if (npc.isLive() && !npc.controller().isMoving()) {
-                npc.controller().walkDirection(entry.getValue(), NpcController.Gait.WALK);
+                npc.controller().walkDirection(entry.getValue().direction(), entry.getValue().gait());
             }
         }
     }

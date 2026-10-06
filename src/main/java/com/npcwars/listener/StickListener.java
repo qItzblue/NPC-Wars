@@ -47,18 +47,27 @@ public final class StickListener implements Listener {
             }
             return;
         }
+        if (stick.mode(item) == com.npcwars.stick.StickMode.SINGLE) {
+            // Placing one copy needs no area: any right-click puts it where you aim.
+            if (action == Action.RIGHT_CLICK_BLOCK || action == Action.RIGHT_CLICK_AIR) {
+                place(player, item);
+            }
+            return;
+        }
         switch (action) {
             case LEFT_CLICK_BLOCK -> stick.setCorner(player, item, event.getClickedBlock(), false);
             case RIGHT_CLICK_BLOCK -> stick.setCorner(player, item, event.getClickedBlock(), true);
-            case RIGHT_CLICK_AIR -> {
-                try {
-                    int made = stick.use(player, item);
-                    plugin.messages().send(player, "stick.used", com.npcwars.config.Messages.var("count", made));
-                } catch (StickException ex) {
-                    plugin.messages().sendAlways(player, ex.messageKey(), ex.resolvers());
-                }
-            }
+            case RIGHT_CLICK_AIR -> place(player, item);
             default -> { }
+        }
+    }
+
+    private void place(Player player, ItemStack item) {
+        try {
+            int made = plugin.stick().use(player, item);
+            plugin.messages().send(player, "stick.used", com.npcwars.config.Messages.var("count", made));
+        } catch (StickException ex) {
+            plugin.messages().sendAlways(player, ex.messageKey(), ex.resolvers());
         }
     }
 }

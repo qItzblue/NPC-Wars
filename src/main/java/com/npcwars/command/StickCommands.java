@@ -17,7 +17,7 @@ final class StickCommands {
     }
 
     static void register(SubCommandRouter router) {
-        router.register(SubCommand.of("stick", "npcplugin.stick", "stick [mode <copy|fill|single>] [then <stand|walk>] [clear]",
+        router.register(SubCommand.of("stick", "npcplugin.stick", "stick [mode <copy|fill|single>] [then <stand|walk|march>] [clear]",
                 "Give yourself the dupe stick (turns players into NPCs); set its mode or what the copies do", ctx -> {
                     Player player = ctx.player();
                     StickManager stick = ctx.plugin().stick();
@@ -67,7 +67,7 @@ final class StickCommands {
                 return Completions.filter(List.of("copy", "fill", "single"), ctx.last());
             }
             if (ctx.size() == 2) {
-                return Completions.filter(List.of("stand", "walk"), ctx.last());
+                return Completions.filter(List.of("stand", "walk", "march"), ctx.last());
             }
             return List.of();
         }));

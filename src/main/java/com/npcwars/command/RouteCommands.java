@@ -150,7 +150,7 @@ final class RouteCommands {
 
     private static SubCommand run() {
         return SubCommand.of("run", "npcplugin.route",
-                "run <name> [npcs|all|team:<n>] [speed=walk|run] [spread=<blocks>] [fight=now|<time>]",
+                "run <name> [npcs|all|team:<n>] [speed=walk|march|run] [spread=<blocks>] [fight=now|<time>]",
                 "Send NPCs along a route; with fight=... the fight starts when the last one arrives", ctx -> {
                     NpcWarsPlugin plugin = ctx.plugin();
                     Route route = route(ctx, ctx.arg(0));
@@ -163,6 +163,7 @@ final class RouteCommands {
                         switch (flags.get("speed").toLowerCase(Locale.ROOT)) {
                             case "walk" -> gait = NpcController.Gait.WALK;
                             case "run", "sprint" -> gait = NpcController.Gait.SPRINT;
+                            case "march" -> gait = NpcController.Gait.MARCH;
                             default -> throw new CommandException("route.invalid-speed", Messages.var("input", flags.get("speed")));
                         }
                     }
@@ -205,7 +206,7 @@ final class RouteCommands {
                         return Completions.filter(ctx.plugin().routes().names(), ctx.last());
                     }
                     List<String> options = new ArrayList<>(Targets.npcSuggestions(ctx));
-                    options.addAll(List.of("speed=walk", "speed=run", "spread=", "fight=now", "fight=5s", "fight=30s"));
+                    options.addAll(List.of("speed=walk", "speed=march", "speed=run", "spread=", "fight=now", "fight=5s", "fight=30s"));
                     return Completions.filter(options, ctx.last());
                 });
     }

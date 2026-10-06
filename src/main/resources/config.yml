@@ -19,6 +19,8 @@ npc:
 movement:
   walk-speed: 0.215
   sprint-speed: 0.28
+  # Marching: a slow, steady, even pace (dupe stick "march", routes "march", massaction move ... march).
+  march-speed: 0.15
   sneak-speed: 0.065
   swim-speed: 0.14
   # After being hit, the NPC's own movement pauses this many ticks so knockback is visible.
@@ -324,6 +326,7 @@ messages:
     hold-it: '<prefix><red>Hold the dupe stick in your main hand first.'
     invalid-mode: '<prefix><red>"<input>" is not a mode. Use copy, fill or single.'
     invalid-behavior: '<prefix><red>"<input>" is not a behavior. Use stand or walk.'
+    no-target: '<prefix><red>Nothing to stand on there. Aim at a block or the ground.'
     no-area: '<prefix><red>Select an area first: left-click a block (corner 1) and right-click a block (corner 2).'
     nobody: '<prefix><red>No player is standing in the selected area.'
     no-ground: '<prefix><red>There is no solid ground to stand on inside the selected area.'

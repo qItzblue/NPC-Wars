@@ -59,7 +59,9 @@ class AreaTest {
         assertEquals(StickMode.SINGLE, StickMode.FILL_AREA.next());
         assertEquals(StickMode.COPY_PLAYERS, StickMode.SINGLE.next());
         assertEquals(StickBehavior.WALK_FORWARD, StickBehavior.STAND.toggled());
-        assertEquals(StickBehavior.STAND, StickBehavior.WALK_FORWARD.toggled());
+        assertEquals(StickBehavior.MARCH, StickBehavior.WALK_FORWARD.toggled());
+        assertEquals(StickBehavior.STAND, StickBehavior.MARCH.toggled());
+        assertEquals(StickBehavior.MARCH, StickBehavior.parse("march", StickBehavior.STAND));
         assertEquals(StickMode.FILL_AREA, StickMode.parse("Fill", StickMode.SINGLE));
         assertEquals(StickMode.SINGLE, StickMode.parse("nonsense", StickMode.SINGLE));
         assertEquals(StickBehavior.WALK_FORWARD, StickBehavior.parse("walk", StickBehavior.STAND));
